@@ -561,7 +561,7 @@ Cách chạy chính thức là Docker Compose với 2 container: `frontend` (ngi
 
 | Service | Image | Vai trò | Cổng |
 | --- | --- | --- | --- |
-| `frontend` | build bằng `node:20-alpine`, chạy bằng `nginx:1.27-alpine` | Serve bản build Vue; proxy `/api`, `/ws`, `/avatars` sang backend | 80 trong container, map ra host `${APP_PORT:-8080}` |
+| `frontend` | build bằng `node:22-alpine`, chạy bằng `nginx:1.27-alpine` | Serve bản build Vue; proxy `/api`, `/ws`, `/avatars` sang backend | 80 trong container, map ra host `${APP_PORT:-8080}` |
 | `backend` | `python:3.12-slim` | FastAPI + Uvicorn | 8000, chỉ trong mạng nội bộ của compose, không publish |
 
 **File cần có**
@@ -651,7 +651,7 @@ AVATARS_DIR=/app/avatars
 **`docker-compose.dev.yml`** (phát triển)
 
 - `backend`: chạy `uvicorn ... --reload`, mount `./backend/app` và `./backend/avatars` vào container.
-- `frontend`: dùng image `node:20-alpine`, mount `./frontend`, chạy `npm run dev -- --host 0.0.0.0`, publish cổng 5173, đặt `VITE_PROXY_TARGET=http://backend:8000`; `node_modules` dùng volume riêng để không bị thư mục máy host ghi đè.
+- `frontend`: dùng image `node:22-alpine`, mount `./frontend`, chạy `npm run dev -- --host 0.0.0.0`, publish cổng 5173, đặt `VITE_PROXY_TARGET=http://backend:8000`; `node_modules` dùng volume riêng để không bị thư mục máy host ghi đè.
 
 **Lệnh sử dụng**
 

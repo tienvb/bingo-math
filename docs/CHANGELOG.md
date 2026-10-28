@@ -4,6 +4,8 @@ Master ghi lại mọi thay đổi đã chốt đối với `spec.md` tại đâ
 
 | Ngày | Mục trong spec | Thay đổi | Lý do |
 | --- | --- | --- | --- |
+| 2026-10-28 | Docker | Image build FE và FE dev đổi `node:20-alpine` → `node:22-alpine`; README yêu cầu Node.js 22+ | `vue-i18n` 11 / `@intlify/*` yêu cầu Node ≥ 22 (`EBADENGINE`) |
+| 2026-10-28 | Docker — nginx | `/assets/` dùng một header `Cache-Control: public, max-age=31536000, immutable` thay cho `expires 1y` + `add_header`; nginx dùng `resolver 127.0.0.11` để không chết khi backend chưa lên | `expires` sinh hai dòng Cache-Control; FE đề xuất ở G3 |
 | 2026-10-28 | Nhiệm vụ FE — Công nghệ | Thêm `lottie-web`, chỉ lazy-load (dynamic import) khi người thắng có `win_animation` dạng `.json` | Người dùng chọn hỗ trợ Lottie đầy đủ như spec |
 | 2026-10-28 | Hợp đồng REST API — `GET /api/rooms/{pin}` | Response thêm `avatar_counts: Record<avatar_id, number>` (chỉ nhân vật có ≥ 1 người chọn) | *Nhân vật* yêu cầu hiện số nhỏ ở góc nhân vật đã có người chọn nhưng hợp đồng chưa có dữ liệu; FE đề xuất ở G2 |
 | 2026-10-28 | Hợp đồng REST API — Quy ước chung | Thêm 422 `invalid_request` (body sai dạng chung), 404 `not_found` (route không tồn tại), 405 `method_not_allowed`. FE gặp mã lạ thì hiện lỗi chung | BE đề xuất ở G2; trước đó dùng tạm `invalid_message` |

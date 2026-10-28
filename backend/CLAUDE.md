@@ -10,13 +10,17 @@ Chỉ sửa file trong `backend/`. Cần thay đổi ở nơi khác thì báo ma
 
 ```bash
 # Cài đặt lần đầu
-cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# requirements.txt = runtime (dùng trong Docker image); requirements-dev.txt = runtime + pytest, httpx
+cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
 # Test
 cd backend && .venv/bin/pytest -q
 
 # Chạy server khi phát triển
 cd backend && .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Docker (chỉ backend; compose do master quản lý)
+docker build -t bingo-backend-test ./backend
 ```
 
 ## Quy ước

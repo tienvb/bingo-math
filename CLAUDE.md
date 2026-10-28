@@ -11,7 +11,7 @@ Bạn là **agent điều phối (master)** của dự án Bingo Math. Bạn ch�
 ## Lệnh thường dùng
 
 ```bash
-# BE (cài lần đầu: cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt)
+# BE (cài lần đầu: cd backend && /opt/homebrew/bin/python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt)
 cd backend && .venv/bin/pytest -q                                   # toàn bộ test
 cd backend && .venv/bin/pytest -q tests/<file>.py::<tên_test>       # một test
 cd backend && .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

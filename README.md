@@ -18,7 +18,7 @@ bingo-math/
 
 - Claude Code (extension VS Code hoặc CLI)
 - Python 3.12 và lệnh `python3` có trong PATH (hook của agent con dùng lệnh này; trên Windows nên chạy trong WSL, hoặc sửa `python3` thành `python` trong `.claude/agents/*.md`)
-- Node.js 20
+- Node.js 22 (hoặc mới hơn)
 - Docker Desktop / Docker Engine (cho giai đoạn 3–4)
 - Git
 
