@@ -14,7 +14,7 @@ const BACKOFF_MIN_MS = 1_000
 const BACKOFF_MAX_MS = 10_000
 
 /** Mã đóng mà không nên kết nối lại. */
-const FINAL_CODES: number[] = [WS_CLOSE.BAD_TOKEN, WS_CLOSE.ROOM_NOT_FOUND, WS_CLOSE.KICKED, WS_CLOSE.ROOM_CLOSED]
+const FINAL_CODES: number[] = [WS_CLOSE.BAD_TOKEN, WS_CLOSE.ROOM_NOT_FOUND, WS_CLOSE.KICKED, WS_CLOSE.REPLACED, WS_CLOSE.ROOM_CLOSED]
 
 export function buildWsUrl(pin: string, role: Role, token: string): string {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'

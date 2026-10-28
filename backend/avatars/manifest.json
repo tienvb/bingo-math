@@ -1,0 +1,122 @@
+[
+  {
+    "id": "capybara",
+    "name": {
+      "vi": "Chuột lang nước",
+      "en": "Capybara"
+    },
+    "image": "capybara.svg",
+    "win_animation": null,
+    "color": "#C08A5B"
+  },
+  {
+    "id": "cat",
+    "name": {
+      "vi": "Mèo",
+      "en": "Cat"
+    },
+    "image": "cat.svg",
+    "win_animation": null,
+    "color": "#F4A259"
+  },
+  {
+    "id": "rabbit",
+    "name": {
+      "vi": "Thỏ",
+      "en": "Rabbit"
+    },
+    "image": "rabbit.svg",
+    "win_animation": null,
+    "color": "#F7C6D9"
+  },
+  {
+    "id": "bear",
+    "name": {
+      "vi": "Gấu",
+      "en": "Bear"
+    },
+    "image": "bear.svg",
+    "win_animation": null,
+    "color": "#8D5B3E"
+  },
+  {
+    "id": "panda",
+    "name": {
+      "vi": "Gấu trúc",
+      "en": "Panda"
+    },
+    "image": "panda.svg",
+    "win_animation": null,
+    "color": "#2F2F3A"
+  },
+  {
+    "id": "fox",
+    "name": {
+      "vi": "Cáo",
+      "en": "Fox"
+    },
+    "image": "fox.svg",
+    "win_animation": null,
+    "color": "#F26B38"
+  },
+  {
+    "id": "penguin",
+    "name": {
+      "vi": "Chim cánh cụt",
+      "en": "Penguin"
+    },
+    "image": "penguin.svg",
+    "win_animation": null,
+    "color": "#2E4057"
+  },
+  {
+    "id": "frog",
+    "name": {
+      "vi": "Ếch",
+      "en": "Frog"
+    },
+    "image": "frog.svg",
+    "win_animation": null,
+    "color": "#6BBF59"
+  },
+  {
+    "id": "duck",
+    "name": {
+      "vi": "Vịt",
+      "en": "Duck"
+    },
+    "image": "duck.svg",
+    "win_animation": null,
+    "color": "#FFD23F"
+  },
+  {
+    "id": "unicorn",
+    "name": {
+      "vi": "Kỳ lân",
+      "en": "Unicorn"
+    },
+    "image": "unicorn.svg",
+    "win_animation": null,
+    "color": "#C77DFF"
+  },
+  {
+    "id": "dinosaur",
+    "name": {
+      "vi": "Khủng long",
+      "en": "Dinosaur"
+    },
+    "image": "dinosaur.svg",
+    "win_animation": null,
+    "color": "#4CB944"
+  },
+  {
+    "id": "owl",
+    "name": {
+      "vi": "Cú",
+      "en": "Owl"
+    },
+    "image": "owl.svg",
+    "win_animation": null,
+    "color": "#9B6A4A"
+  }
+]

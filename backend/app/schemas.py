@@ -32,7 +32,10 @@ ERR_INVALID_NICKNAME = "invalid_nickname"
 ERR_INVALID_AVATAR = "invalid_avatar"
 ERR_NOT_YOUR_TURN = "not_your_turn"
 ERR_STALE_QUESTION = "stale_question"
-ERR_INVALID_MESSAGE = "invalid_message"  # WS: malformed JSON, unknown type, bad data
+ERR_INVALID_MESSAGE = "invalid_message"  # WS only: malformed JSON, unknown type, bad data
+ERR_INVALID_REQUEST = "invalid_request"  # REST: malformed body not covered by a specific code
+ERR_NOT_FOUND = "not_found"  # REST: unknown route
+ERR_METHOD_NOT_ALLOWED = "method_not_allowed"  # REST: wrong method
 
 ERROR_CODES: frozenset[str] = frozenset(
     {
@@ -41,12 +44,14 @@ ERROR_CODES: frozenset[str] = frozenset(
         ERR_FIXED_PLAYER_REQUIRED, ERR_NO_NUMBERS_LEFT, ERR_NICKNAME_TAKEN,
         ERR_GAME_IN_PROGRESS, ERR_ROOM_FULL, ERR_INVALID_NICKNAME, ERR_INVALID_AVATAR,
         ERR_NOT_YOUR_TURN, ERR_STALE_QUESTION, ERR_INVALID_MESSAGE,
+        ERR_INVALID_REQUEST, ERR_NOT_FOUND, ERR_METHOD_NOT_ALLOWED,
     }
 )
 
 WS_CLOSE_BAD_TOKEN = 4401
 WS_CLOSE_ROOM_NOT_FOUND = 4404
 WS_CLOSE_KICKED = 4403
+WS_CLOSE_REPLACED = 4409  # same player connected again elsewhere
 WS_CLOSE_ROOM_CLOSED = 4410
 
 MAX_PLAYERS_PER_ROOM = 30
@@ -248,6 +253,8 @@ class CreateRoomResponse(BaseModel):
 class RoomStatusResponse(BaseModel):
     phase: Phase
     player_count: int
+    # avatar_id -> how many current players chose it; only avatars with >= 1 player.
+    avatar_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class LookupResponse(BaseModel):

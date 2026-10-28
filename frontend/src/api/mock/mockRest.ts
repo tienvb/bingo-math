@@ -1,43 +1,41 @@
 import type { RestApi } from '../rest'
 import { getHostToken } from '@/stores/session'
 import { MOCK_AVATARS } from './avatars'
-import { mockServer, type MockServer } from './server'
+import { MockServer } from './server'
+import { LATENCY_MS, LocalTransport, cloneArgs, type MockTransport, type ServerMethod } from './transport'
+import { lazyHub } from './hub'
 
-const LATENCY_MS = 80
+const later = <T>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(JSON.parse(JSON.stringify(v)) as T), LATENCY_MS))
 
-/** Gọi hàm của mock server với độ trễ nhỏ; lỗi ApiError được chuyển thành Promise reject. */
-function call<T>(fn: () => T): Promise<T> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        resolve(JSON.parse(JSON.stringify(fn())) as T)
-      } catch (e) {
-        reject(e)
-      }
-    }, LATENCY_MS)
-  })
-}
-
-export function createMockRestApi(server: MockServer, hostToken: (pin: string) => string | undefined = getHostToken): RestApi {
+/**
+ * REST giả theo đúng bảng endpoint. Lời gọi đi qua MockTransport (cùng tab hoặc qua tab giữ engine);
+ * host token đọc từ localStorage của tab gọi, như header Bearer của bản thật.
+ */
+export function createMockRestApi(
+  target: MockServer | MockTransport,
+  hostToken: (pin: string) => string | undefined = getHostToken,
+): RestApi {
+  const t = target instanceof MockServer ? new LocalTransport(target) : target
+  const call = <R>(method: ServerMethod, ...args: unknown[]) => t.invoke(method, cloneArgs(args)) as Promise<R>
   return {
-    createRoom: (body) => call(() => server.createRoom(body)),
-    getRoom: (pin) => call(() => server.getRoom(pin)),
-    lookup: (pictures) => call(() => server.lookup(pictures)),
-    closeRoom: (pin) => call(() => server.closeRoom(pin, hostToken(pin))),
-    updateConfig: (pin, config) => call(() => server.updateConfig(pin, hostToken(pin), config)),
-    updateJoinBaseUrl: (pin, url) => call(() => server.updateJoinBaseUrl(pin, hostToken(pin), url)),
-    kickPlayer: (pin, id) => call(() => server.kickPlayer(pin, hostToken(pin), id)),
-    start: (pin, body) => call(() => server.start(pin, hostToken(pin), body)),
-    next: (pin) => call(() => server.next(pin, hostToken(pin))),
-    skip: (pin) => call(() => server.skip(pin, hostToken(pin))),
-    help: (pin) => call(() => server.help(pin, hostToken(pin))),
-    end: (pin) => call(() => server.end(pin, hostToken(pin))),
-    newRound: (pin, body) => call(() => server.newRound(pin, hostToken(pin), body?.join_base_url)),
-    join: (pin, body) => call(() => server.join(pin, body)),
-    avatars: () => call(() => MOCK_AVATARS),
-    network: () => call(() => ({ ips: ['192.168.1.15'], port: 5173 })),
-    health: () => call(() => ({ ok: true })),
+    createRoom: (body) => call('createRoom', body),
+    getRoom: (pin) => call('getRoom', pin),
+    lookup: (pictures) => call('lookup', pictures),
+    closeRoom: (pin) => call('closeRoom', pin, hostToken(pin)),
+    updateConfig: (pin, config) => call('updateConfig', pin, hostToken(pin), config),
+    updateJoinBaseUrl: (pin, url) => call('updateJoinBaseUrl', pin, hostToken(pin), url),
+    kickPlayer: (pin, id) => call('kickPlayer', pin, hostToken(pin), id),
+    start: (pin, body) => call('start', pin, hostToken(pin), body),
+    next: (pin) => call('next', pin, hostToken(pin)),
+    skip: (pin) => call('skip', pin, hostToken(pin)),
+    help: (pin) => call('help', pin, hostToken(pin)),
+    end: (pin) => call('end', pin, hostToken(pin)),
+    newRound: (pin, body) => call('newRound', pin, hostToken(pin), body?.join_base_url),
+    join: (pin, body) => call('join', pin, body),
+    avatars: () => later(MOCK_AVATARS),
+    network: () => later({ ips: ['192.168.1.15'], port: Number(window.location.port) || 80 }),
+    health: () => later({ ok: true }),
   }
 }
 
-export const mockRestApi: RestApi = createMockRestApi(mockServer)
+export const mockRestApi: RestApi = createMockRestApi(lazyHub)

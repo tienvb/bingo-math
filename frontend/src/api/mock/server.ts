@@ -18,6 +18,7 @@ import type {
   QuestionReason,
   Reveal,
   RevealItem,
+  RoomInfoResponse,
   Role,
   RoomIcon,
   ServerMessageMap,
@@ -71,6 +72,28 @@ type MockPlayer = {
   bot: boolean
 }
 
+/** Dạng tuần tự hóa được (JSON) của một phòng, để tab khác lên làm leader thì khôi phục. */
+export type RoomState = {
+  room_id: string
+  host_token: string
+  screen_token: string
+  pin: string
+  picture_code: RoomIcon[]
+  config: GameConfig
+  joinBase: string
+  phase: Phase
+  players: MockPlayer[]
+  answerer_mode: AnswererMode | null
+  fixed_player_id: string | null
+  drawn: number[]
+  q: (Omit<QuestionState, 'tried' | 'usedWrong'> & { tried: string[]; usedWrong: number[] }) | null
+  reveal: Reveal | null
+  winners: Winner[]
+  lastSkipped: number | null
+}
+
+export type ServerState = { rooms: RoomState[]; closedPins: string[]; closedPictures: string[] }
+
 type QuestionState = {
   question_id: string
   attempt: number
@@ -111,9 +134,9 @@ function isEasyPin(pin: string): boolean {
 }
 
 class MockRoom {
-  readonly room_id = randomId()
-  readonly host_token = randomId(43)
-  readonly screen_token = randomId(43)
+  room_id = randomId()
+  host_token = randomId(43)
+  screen_token = randomId(43)
   phase: Phase = 'lobby'
   players: MockPlayer[] = []
   answerer_mode: AnswererMode | null = null
@@ -459,6 +482,75 @@ class MockRoom {
     this.broadcast('game_over', { reason, winners: structuredClone(winners) })
   }
 
+  exportState(): RoomState {
+    const q = this.q
+    return structuredClone({
+      room_id: this.room_id,
+      host_token: this.host_token,
+      screen_token: this.screen_token,
+      pin: this.pin,
+      picture_code: this.picture_code,
+      config: this.config,
+      joinBase: this.joinBase,
+      phase: this.phase,
+      players: this.players,
+      answerer_mode: this.answerer_mode,
+      fixed_player_id: this.fixed_player_id,
+      drawn: this.drawn,
+      q: q ? { ...q, tried: [...q.tried], usedWrong: [...q.usedWrong] } : null,
+      reveal: this.reveal,
+      winners: this.winners,
+      lastSkipped: this.lastSkipped,
+    })
+  }
+
+  importState(st: RoomState): void {
+    this.room_id = st.room_id
+    this.host_token = st.host_token
+    this.screen_token = st.screen_token
+    this.phase = st.phase
+    // Sau khi đổi leader mọi kết nối đã mất; người chơi thật sẽ tự kết nối lại.
+    this.players = st.players.map((p) => ({ ...p, info: { ...p.info, connected: p.bot } }))
+    this.answerer_mode = st.answerer_mode
+    this.fixed_player_id = st.fixed_player_id
+    this.drawn = st.drawn
+    this.q = st.q ? { ...st.q, tried: new Set(st.q.tried), usedWrong: new Set(st.q.usedWrong) } : null
+    this.reveal = st.reveal
+    this.winners = st.winners
+    this.lastSkipped = st.lastSkipped
+    this.resumeTimers()
+  }
+
+  /** Đặt lại các timer theo state hiện tại (dùng sau khi khôi phục). */
+  private resumeTimers(): void {
+    const q = this.q
+    if (this.phase === 'question' && q) {
+      const ans = this.player(q.answererId)
+      const qid = q.question_id
+      const attempt = q.attempt
+      if (q.deadline) {
+        const left = Math.max(0, Date.parse(q.deadline) - Date.now())
+        this.setTimer('countdown', left, () => {
+          if (this.phase === 'question' && this.q?.question_id === qid && this.q.attempt === attempt) this.changeAnswerer('timeout')
+        })
+      }
+      if (ans?.bot) {
+        this.setTimer('bot', BOT_ANSWER_MS, () =>
+          this.submitAnswer(ans.info.id, { question_id: qid, attempt, key: pick(this.rng, OPTION_KEYS) }),
+        )
+      } else if (ans) {
+        this.setTimer('disconnect', DISCONNECT_GRACE_MS, () => {
+          if (this.phase === 'question' && this.q?.answererId === ans.info.id && !ans.info.connected) this.changeAnswerer('disconnect')
+        })
+      }
+    } else if (this.phase === 'reveal' && this.reveal) {
+      const r = this.reveal
+      const secs = r.items.length ? r.items.length * r.seconds_per_card : NO_ONE_REVEAL_SECONDS
+      const left = Math.max(0, Date.parse(r.started_at) + secs * 1000 - Date.now())
+      this.setTimer('reveal', left, () => this.afterReveal())
+    }
+  }
+
   close(reason: 'closed_by_host' | 'expired'): void {
     this.clearAllTimers()
     this.broadcast('room_closed', { reason })
@@ -520,9 +612,11 @@ export class MockServer {
     }
   }
 
-  getRoom(pin: string) {
+  getRoom(pin: string): RoomInfoResponse {
     const r = this.room(pin)
-    return { phase: r.phase, player_count: r.players.length }
+    const avatar_counts: Record<string, number> = {}
+    for (const p of r.players) avatar_counts[p.info.avatar_id] = (avatar_counts[p.info.avatar_id] ?? 0) + 1
+    return { phase: r.phase, player_count: r.players.length, avatar_counts }
   }
 
   lookup(pictures: string[]) {
@@ -683,7 +777,7 @@ export class MockServer {
       r.conns.forEach((c) => {
         if (c.role === 'player' && c.playerId === player!.info.id) {
           r.conns.delete(c)
-          c.terminate(1000)
+          c.terminate(WS_CLOSE.REPLACED)
         }
       })
     }
@@ -723,6 +817,25 @@ export class MockServer {
     const q = this.rooms.get(pin)?.q
     return q ? OPTION_KEYS[q.correctIndex] : null
   }
+  exportState(): ServerState {
+    return {
+      rooms: [...this.rooms.values()].map((r) => r.exportState()),
+      closedPins: [...this.closedPins],
+      closedPictures: [...this.closedPictures],
+    }
+  }
+
+  importState(st: ServerState): void {
+    this.reset()
+    for (const rs of st.rooms) {
+      const room = new MockRoom(this, rs.pin, rs.picture_code, rs.config, rs.joinBase)
+      room.importState(rs)
+      this.rooms.set(room.pin, room)
+    }
+    st.closedPins.forEach((p) => this.closedPins.add(p))
+    st.closedPictures.forEach((p) => this.closedPictures.add(p))
+  }
+
   reset(): void {
     this.rooms.forEach((r) => r.clearAllTimers())
     this.rooms.clear()

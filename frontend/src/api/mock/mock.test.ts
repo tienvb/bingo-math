@@ -75,6 +75,13 @@ describe('mock server', () => {
     await tick(100)
     expect(((await dupP) as ApiError).code).toBe('nickname_taken')
 
+    // avatar_counts: chỉ gồm nhân vật có ≥ 1 người chọn (3 bot: cat, fox, unicorn + người chơi chọn cat)
+    const infoP = api.getRoom(room.pin)
+    await tick(100)
+    const info = await infoP
+    expect(info.player_count).toBe(4)
+    expect(info.avatar_counts).toEqual({ cat: 2, fox: 1, unicorn: 1 })
+
     const connect = (role: Role, token: string) => {
       const c = new MockGameClient(server)
       const log = record(c)
@@ -168,6 +175,17 @@ describe('mock server', () => {
     expect(last.type).toBe('snapshot')
     expect(last.data.phase).toBe('lobby')
     expect(last.data.drawn).toEqual([])
+
+    // Cùng người chơi mở tab khác: kết nối cũ bị đóng 4409, không tự kết nối lại
+    let replacedCode: number | undefined
+    player.c.onStatus((s, code) => s === 'closed' && (replacedCode = code))
+    const player2 = connect('player', joined.player_token)
+    await tick(0)
+    expect(replacedCode).toBe(4409)
+    await tick(5000)
+    expect(player2.log.filter((m) => m.type === 'snapshot')).toHaveLength(1)
+    player.c = player2.c
+    player.log = player2.log
 
     // Đóng phòng
     let closedCode: number | undefined

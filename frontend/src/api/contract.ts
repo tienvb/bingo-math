@@ -82,7 +82,11 @@ export type ErrorCode =
   // WebSocket
   | "not_your_turn"
   | "stale_question"
-  | "invalid_message";             // message WS sai dạng (CHANGELOG 2026-10-28)
+  | "invalid_message"              // message WS sai dạng (CHANGELOG 2026-10-28)
+  // REST chung (CHANGELOG 2026-10-28)
+  | "invalid_request"              // 422 body sai dạng chung
+  | "not_found"                    // 404 route không tồn tại
+  | "method_not_allowed";          // 405
 
 export const ERROR_CODES: readonly ErrorCode[] = [
   "bad_token", "room_not_found", "invalid_phase",
@@ -90,6 +94,7 @@ export const ERROR_CODES: readonly ErrorCode[] = [
   "no_players", "fixed_player_required", "no_numbers_left", "nickname_taken",
   "game_in_progress", "room_full", "invalid_nickname", "invalid_avatar",
   "not_your_turn", "stale_question", "invalid_message",
+  "invalid_request", "not_found", "method_not_allowed",
 ] as const;
 
 export type ErrorBody = { code: ErrorCode; message: string };
@@ -105,7 +110,8 @@ export type CreateRoomRequest = { config: GameConfig; join_base_url: string };
 export type CreateRoomResponse = { pin: string; picture_code: RoomIcon[]; host_token: string; screen_token: string; join_url: string };
 
 // GET /api/rooms/{pin}
-export type RoomInfoResponse = { phase: Phase; player_count: number };
+// avatar_counts: chỉ gồm nhân vật có ≥ 1 người chọn (CHANGELOG 2026-10-28)
+export type RoomInfoResponse = { phase: Phase; player_count: number; avatar_counts: Record<string, number> };
 
 // GET /api/rooms/lookup?pictures=<id>,<id>,<id>
 export type LookupResponse = { pin: string };
@@ -152,6 +158,8 @@ export const WS_CLOSE = {
   ROOM_NOT_FOUND: 4404,
   KICKED: 4403,
   ROOM_CLOSED: 4410,
+  /** Bị thay bằng kết nối mới của cùng người chơi (tab/thiết bị khác). CHANGELOG 2026-10-28 */
+  REPLACED: 4409,
 } as const;
 
 export type QuestionReason = "new" | "wrong" | "help" | "max_wrong" | "timeout" | "disconnect";

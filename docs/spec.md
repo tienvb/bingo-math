@@ -292,6 +292,7 @@ REST dùng để tạo phòng, gửi lệnh của chủ phòng và cho người 
 - Endpoint có quyền **host** cần header `Authorization: Bearer <host_token>` của đúng phòng đó; thiếu hoặc sai trả 401 `bad_token`.
 - PIN không tồn tại trả 404 `room_not_found`. Gọi lệnh sai trạng thái trả 409 `invalid_phase`.
 - Lỗi luôn có dạng `{"code": "<mã>", "message": "<mô tả>"}`; FE hiển thị theo `code` (xem *Song ngữ*).
+- Body sai dạng mà không thuộc mã riêng nào (ví dụ `answerer_mode` lạ, body rỗng, JSON hỏng) trả 422 `invalid_request`. Field có mã riêng thì thiếu hay sai đều dùng mã đó (ví dụ thiếu `nickname` → `invalid_nickname`, thiếu `avatar_id` → `invalid_avatar`). Route không tồn tại trả 404 `not_found`, sai method trả 405 `method_not_allowed`. FE gặp mã không biết thì hiện thông báo lỗi chung.
 
 **Cấu hình phòng (`GameConfig`)**
 
@@ -312,7 +313,7 @@ REST dùng để tạo phòng, gửi lệnh của chủ phòng và cho người 
 | Method | Path | Quyền | Body | Trả về | Trạng thái hợp lệ | Lỗi riêng |
 | --- | --- | --- | --- | --- | --- | --- |
 | POST | `/api/rooms` | công khai | `{config, join_base_url}` | `{pin, picture_code, host_token, screen_token, join_url}` | | 422 `invalid_config`, `invalid_join_url` · 503 `too_many_rooms` |
-| GET | `/api/rooms/{pin}` | công khai | | `{phase, player_count}` | mọi lúc | |
+| GET | `/api/rooms/{pin}` | công khai | | `{phase, player_count, avatar_counts}`; `avatar_counts: Record<avatar_id, number>`, chỉ gồm nhân vật có ≥ 1 người chọn | mọi lúc | |
 | GET | `/api/rooms/lookup?pictures=<id>,<id>,<id>` | công khai | | `{pin}` | mọi lúc | 404 `room_not_found` (mã hình không khớp phòng nào, hoặc phòng đã đóng) |
 | DELETE | `/api/rooms/{pin}` | host | | `{ok}` | mọi lúc | |
 | PUT | `/api/rooms/{pin}/config` | host | `GameConfig` | `GameConfig` | `lobby` (sinh lại vé cho mọi người), `finished` | 422 `invalid_config` |
@@ -339,7 +340,7 @@ Static: `/avatars/<file>` là file ảnh nhân vật.
 
 ## Hợp đồng WebSocket
 
-Một endpoint duy nhất: `/ws?pin=<pin>&role=<host|screen|player>&token=<token>`. Mã đóng kết nối: 4401 token sai · 4404 phòng không tồn tại · 4403 người chơi bị kick · 4410 phòng đã đóng (gửi sau `room_closed`). Mọi message, cả hai chiều, có dạng `{"type": "<tên>", "data": {...}}`.
+Một endpoint duy nhất: `/ws?pin=<pin>&role=<host|screen|player>&token=<token>`. Mã đóng kết nối: 4401 token sai · 4404 phòng không tồn tại · 4403 người chơi bị kick · 4409 kết nối bị thay bằng kết nối mới của cùng người chơi (mở ở tab/thiết bị khác) · 4410 phòng đã đóng (gửi sau `room_closed`). Client **không** tự kết nối lại khi nhận 4401, 4403, 4404, 4409, 4410. Mọi message, cả hai chiều, có dạng `{"type": "<tên>", "data": {...}}`.
 
 **Kiểu dữ liệu dùng chung**
 
@@ -462,7 +463,7 @@ backend/
 - [ ] `ws/manager.py`: map kết nối theo PIN, role và `player_id`; người chơi kết nối lại thì thay socket cũ; host và screen được mở nhiều kết nối; gửi `snapshot` ngay khi kết nối.
 - [ ] REST endpoint đúng bảng, kiểm tra quyền và `phase`, trả lỗi đúng `code`.
 - [ ] Địa chỉ join: kiểm tra `join_base_url`, ghép `join_url`, endpoint đổi địa chỉ và sự kiện `join_url_updated`.
-- [ ] Nhân vật: tạo 12 nhân vật SVG mặc định và `manifest.json` trong `backend/avatars/`; đọc và kiểm tra manifest khi khởi động (id không trùng, file ảnh tồn tại, báo lỗi rõ nếu sai); serve `/avatars`; `GET /api/avatars`; kiểm tra `avatar_id` khi vào phòng.
+- [ ] Nhân vật: tạo 12 nhân vật SVG mặc định và `manifest.json` trong `backend/avatars/`; đọc và kiểm tra manifest khi khởi động (id không trùng, file ảnh tồn tại, báo lỗi rõ nếu sai). Mục sai thì bỏ qua và ghi log cảnh báo nêu rõ lỗi, server vẫn chạy với các mục hợp lệ; chỉ dừng khởi động khi `manifest.json` không đọc được hoặc không còn nhân vật hợp lệ nào; serve `/avatars`; `GET /api/avatars`; kiểm tra `avatar_id` khi vào phòng.
 - [ ] `GET /api/network` và `GET /api/health` theo hợp đồng.
 - [ ] Không bao giờ gửi đáp án đúng xuống client trước khi trả lời đúng; không tin bất kỳ trạng thái ô nào từ client.
 - [ ] Khi có `STATIC_DIR` (chạy không Docker): serve bản build FE, các route `/`, `/create`, `/host/*`, `/screen/*`, `/play`, `/play/*` trả `index.html`.
@@ -486,7 +487,7 @@ backend/
 
 FE hiển thị đúng theo `phase` và sự kiện từ server, không tự tính đáp án hay tự đánh dấu ô. Trong lúc BE chưa xong, FE chạy hoàn toàn bằng mock client.
 
-**Công nghệ**: Vue 3 (Composition API, `<script setup>`), Vite, TypeScript, Pinia, Vue Router, `vue-i18n`, `qrcode`, `canvas-confetti`. Không bắt buộc UI library. Màn hình người chơi thiết kế mobile-first cho trẻ em (nút to, chữ to, màu tươi); màn hình chính thiết kế cho 1920 × 1080.
+**Công nghệ**: Vue 3 (Composition API, `<script setup>`), Vite, TypeScript, Pinia, Vue Router, `vue-i18n`, `qrcode`, `canvas-confetti`, `lottie-web` (chỉ lazy-load khi cần phát `win_animation` dạng Lottie JSON), `vitest` (dev). Không bắt buộc UI library. Màn hình người chơi thiết kế mobile-first cho trẻ em (nút to, chữ to, màu tươi); màn hình chính thiết kế cho 1920 × 1080.
 
 **Cấu trúc thư mục**
 

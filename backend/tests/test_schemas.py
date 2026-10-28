@@ -149,5 +149,12 @@ def test_error_codes_match_contract() -> None:
         "too_many_rooms", "player_not_found", "no_players", "fixed_player_required",
         "no_numbers_left", "nickname_taken", "game_in_progress", "room_full",
         "invalid_nickname", "invalid_avatar", "not_your_turn", "stale_question",
-        "invalid_message",
+        "invalid_message", "invalid_request", "not_found", "method_not_allowed",
     }
+
+
+def test_ws_close_codes_match_contract() -> None:
+    from app import schemas
+
+    assert (schemas.WS_CLOSE_BAD_TOKEN, schemas.WS_CLOSE_KICKED, schemas.WS_CLOSE_ROOM_NOT_FOUND,
+            schemas.WS_CLOSE_REPLACED, schemas.WS_CLOSE_ROOM_CLOSED) == (4401, 4403, 4404, 4409, 4410)

@@ -1,4 +1,6 @@
 import type { Avatar } from '../contract'
+// Lottie mẫu để thử nhánh win_animation_url (.json) trong mock.
+import winDemoUrl from './win-demo.json?url'
 
 // Ảnh tạm cho mock: hình tròn màu kèm chữ cái đầu, cùng dạng dữ liệu Avatar.
 const RAW: { id: string; vi: string; en: string; color: string }[] = [
@@ -29,6 +31,6 @@ export const MOCK_AVATARS: Avatar[] = RAW.map((r) => ({
   id: r.id,
   name: { vi: r.vi, en: r.en },
   image_url: placeholder(r.en[0], r.color),
-  win_animation_url: null,
+  win_animation_url: r.id === 'unicorn' ? winDemoUrl : null,
   color: r.color,
 }))
