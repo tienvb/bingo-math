@@ -1,0 +1,94 @@
+{
+  "app": {
+    "name": "Bingo Math",
+    "loading": "Đang tải…",
+    "backHome": "Về trang chủ",
+    "language": "Ngôn ngữ",
+    "languages": { "vi": "Tiếng Việt", "en": "English" },
+    "connection": {
+      "connecting": "Đang kết nối…",
+      "reconnecting": "Mất kết nối, đang thử lại…",
+      "closed": "Đã ngắt kết nối"
+    }
+  },
+  "home": {
+    "title": "Bingo Math",
+    "subtitle": "Giải toán, khoanh số, BINGO!",
+    "createRoom": "Tạo phòng",
+    "joinRoom": "Vào phòng"
+  },
+  "create": {
+    "title": "Tạo phòng",
+    "operations": "Phép tính",
+    "timer": "Đếm ngược (giây, 0 là tắt)",
+    "maxWrong": "Số lần sai tối đa",
+    "revealSeconds": "Thời gian hiện mỗi vé (giây)",
+    "drawOnlyCardNumbers": "Chỉ bốc số có trên vé",
+    "submit": "Tạo"
+  },
+  "host": {
+    "title": "Điều khiển phòng",
+    "notHost": "Bạn không phải chủ phòng này"
+  },
+  "screen": {
+    "title": "Màn hình chính"
+  },
+  "play": {
+    "title": "Vào phòng",
+    "pickPictures": "Chọn hình",
+    "enterPin": "Nhập số",
+    "nickname": "Tên của bé",
+    "pickAvatar": "Chọn nhân vật",
+    "kicked": "Bạn đã bị mời ra",
+    "roomClosed": "Phòng đã đóng"
+  },
+  "phase": {
+    "lobby": "Sảnh chờ",
+    "question": "Câu hỏi",
+    "reveal": "Khoanh số",
+    "ready": "Chờ câu tiếp theo",
+    "finished": "Kết thúc"
+  },
+  "operations": {
+    "add": "Cộng",
+    "sub": "Trừ",
+    "mul": "Nhân",
+    "div": "Chia"
+  },
+  "roomIcons": {
+    "apple": "Quả táo",
+    "banana": "Quả chuối",
+    "star": "Ngôi sao",
+    "sun": "Mặt trời",
+    "moon": "Mặt trăng",
+    "heart": "Trái tim",
+    "car": "Ô tô",
+    "plane": "Máy bay",
+    "ball": "Quả bóng",
+    "flower": "Bông hoa",
+    "umbrella": "Cái ô",
+    "fish": "Con cá"
+  },
+  "errors": {
+    "bad_token": "Không có quyền thực hiện thao tác này",
+    "room_not_found": "Không tìm thấy phòng hoặc phòng đã đóng",
+    "invalid_phase": "Không thể làm việc này lúc này",
+    "invalid_config": "Cấu hình chưa hợp lệ: cần bật ít nhất một phép tính và đủ số để tạo vé",
+    "invalid_join_url": "Địa chỉ không hợp lệ (ví dụ: http://192.168.1.15:8080)",
+    "too_many_rooms": "Đã có quá nhiều phòng, hãy thử lại sau",
+    "player_not_found": "Không tìm thấy người chơi",
+    "no_players": "Cần ít nhất 1 người chơi để bắt đầu",
+    "fixed_player_required": "Hãy chọn người trả lời cố định",
+    "no_numbers_left": "Đã hết số để bốc",
+    "nickname_taken": "Tên này đã có người dùng, hãy chọn tên khác",
+    "game_in_progress": "Ván đang chơi, chưa vào được",
+    "room_full": "Phòng đã đủ người",
+    "invalid_nickname": "Tên cần từ 1 đến 20 ký tự",
+    "invalid_avatar": "Nhân vật không hợp lệ",
+    "not_your_turn": "Chưa đến lượt của bạn",
+    "stale_question": "Câu hỏi đã thay đổi",
+    "invalid_message": "Dữ liệu gửi lên không hợp lệ",
+    "network_error": "Không kết nối được máy chủ",
+    "unknown_error": "Có lỗi xảy ra, hãy thử lại"
+  }
+}

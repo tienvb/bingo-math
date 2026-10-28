@@ -400,7 +400,7 @@ type Snapshot = {
 | `game_over` | tất cả | `{reason: "bingo" \| "ended_by_host", winners}` | Kết thúc ván |
 | `kicked` | 1 người chơi | `{}` | Bị kick, sau đó server đóng kết nối |
 | `room_closed` | tất cả | `{reason: "closed_by_host" \| "expired"}` | Phòng bị đóng hoặc hết hạn, sau đó server đóng kết nối |
-| `error` | người gửi | `{code, message}` | Message không hợp lệ |
+| `error` | người gửi | `{code, message}` | Message không hợp lệ. JSON hỏng, `type` lạ, `data` sai dạng, hoặc role không được gửi `type` đó: `code = invalid_message` |
 | `pong` | người gửi | `{}` | Trả lời `ping` |
 
 Với câu trả lời đúng, thứ tự gửi cố định: `answer_result` → `number_drawn` → `cell_marked` → `phase_changed {reveal}` → `reveal`.

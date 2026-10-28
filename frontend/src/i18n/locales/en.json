@@ -1,0 +1,94 @@
+{
+  "app": {
+    "name": "Bingo Math",
+    "loading": "Loading…",
+    "backHome": "Back to home",
+    "language": "Language",
+    "languages": { "vi": "Tiếng Việt", "en": "English" },
+    "connection": {
+      "connecting": "Connecting…",
+      "reconnecting": "Connection lost, retrying…",
+      "closed": "Disconnected"
+    }
+  },
+  "home": {
+    "title": "Bingo Math",
+    "subtitle": "Solve, mark, BINGO!",
+    "createRoom": "Create room",
+    "joinRoom": "Join room"
+  },
+  "create": {
+    "title": "Create room",
+    "operations": "Operations",
+    "timer": "Countdown (seconds, 0 = off)",
+    "maxWrong": "Max wrong answers",
+    "revealSeconds": "Seconds per card",
+    "drawOnlyCardNumbers": "Only draw numbers on cards",
+    "submit": "Create"
+  },
+  "host": {
+    "title": "Room control",
+    "notHost": "You are not the host of this room"
+  },
+  "screen": {
+    "title": "Main screen"
+  },
+  "play": {
+    "title": "Join room",
+    "pickPictures": "Pick pictures",
+    "enterPin": "Enter number",
+    "nickname": "Your name",
+    "pickAvatar": "Pick a character",
+    "kicked": "You were removed from the room",
+    "roomClosed": "The room is closed"
+  },
+  "phase": {
+    "lobby": "Lobby",
+    "question": "Question",
+    "reveal": "Marking",
+    "ready": "Waiting for next question",
+    "finished": "Finished"
+  },
+  "operations": {
+    "add": "Addition",
+    "sub": "Subtraction",
+    "mul": "Multiplication",
+    "div": "Division"
+  },
+  "roomIcons": {
+    "apple": "Apple",
+    "banana": "Banana",
+    "star": "Star",
+    "sun": "Sun",
+    "moon": "Moon",
+    "heart": "Heart",
+    "car": "Car",
+    "plane": "Plane",
+    "ball": "Ball",
+    "flower": "Flower",
+    "umbrella": "Umbrella",
+    "fish": "Fish"
+  },
+  "errors": {
+    "bad_token": "You are not allowed to do this",
+    "room_not_found": "Room not found or already closed",
+    "invalid_phase": "This can't be done right now",
+    "invalid_config": "Invalid settings: enable at least one operation with enough numbers for a card",
+    "invalid_join_url": "Invalid address (e.g. http://192.168.1.15:8080)",
+    "too_many_rooms": "Too many rooms, please try again later",
+    "player_not_found": "Player not found",
+    "no_players": "At least 1 player is needed to start",
+    "fixed_player_required": "Please choose the fixed answerer",
+    "no_numbers_left": "No numbers left to draw",
+    "nickname_taken": "That name is taken, please pick another",
+    "game_in_progress": "A game is in progress, you can't join now",
+    "room_full": "The room is full",
+    "invalid_nickname": "Name must be 1 to 20 characters",
+    "invalid_avatar": "Invalid character",
+    "not_your_turn": "It's not your turn",
+    "stale_question": "The question has changed",
+    "invalid_message": "Invalid data sent",
+    "network_error": "Cannot reach the server",
+    "unknown_error": "Something went wrong, please try again"
+  }
+}

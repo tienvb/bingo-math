@@ -1,0 +1,25 @@
+:root {
+  --c-primary: #ff7a59;
+  --c-secondary: #3fa7f5;
+  --c-bg: #fff8ef;
+  --c-text: #2b2d42;
+  --c-mark: #e63946;
+  font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--c-text);
+  background: var(--c-bg);
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: var(--c-bg); }
+.topbar { display: flex; justify-content: flex-end; padding: 0.75rem 1rem; }
+.page { max-width: 960px; margin: 0 auto; padding: 1rem; }
+h1 { font-size: 2.5rem; margin: 0.5rem 0; }
+.big-btn {
+  display: inline-block; min-width: 260px; padding: 1.25rem 2rem; border-radius: 1.5rem;
+  font-size: 1.75rem; font-weight: 800; text-decoration: none; color: #fff;
+  background: var(--c-primary); box-shadow: 0 6px 0 rgba(0, 0, 0, 0.15);
+}
+.big-btn.alt { background: var(--c-secondary); }
+.link { color: var(--c-secondary); font-size: 1.2rem; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
