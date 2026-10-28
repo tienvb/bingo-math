@@ -80,10 +80,12 @@ Không có tài khoản hay đăng nhập. Quyền của mỗi màn hình đư�
 | Màn hình | Route | Thiết bị | Ai dùng | Chức năng |
 | --- | --- | --- | --- | --- |
 | Trang chủ | `/` | Mọi thiết bị | Mọi người | 2 nút lớn: Tạo phòng, Vào phòng · chọn ngôn ngữ |
-| Tạo phòng | `/create` | Laptop / tablet | Chủ phòng | Form cấu hình luật: phép tính, đếm ngược, số lần sai tối đa, thời gian reveal. Điền sẵn cấu hình lần trước |
-| Điều khiển phòng | `/host/:pin` | Laptop / tablet | Chủ phòng | Mã phòng + QR cho người chơi · danh sách người chơi, kick · sửa cấu hình khi đang ở sảnh · chọn fixed/random rồi bắt đầu · nút Câu tiếp theo, Bỏ qua, Help, Kết thúc ván, Ván mới, Đóng phòng · mở màn hình chính |
-| Màn hình chính | `/screen/:pin?token=<screen_token>` | Máy chiếu / TV | Cả phòng xem | Sảnh: PIN, mã hình, QR, danh sách người chơi kèm nhân vật · trong ván: phép tính, 4 đáp án, nhân vật và tên người đang trả lời, đồng hồ · sau khi đúng: lần lượt hiện vé có số đó với hiệu ứng khoanh · dải số đã ra · màn hình người thắng |
-| Người chơi | `/play/:pin` (hoặc `/play` để nhập mã) | Điện thoại | Các bé | Quét QR, chọn 3 hình hoặc nhập PIN · nhập tên · chọn nhân vật · xem vé của mình bất cứ lúc nào · xem câu hỏi · nếu được chọn: bấm A/B/C/D hoặc Help · màn hình thắng/thua |
+| Tạo phòng | `/create` | Mọi thiết bị (chủ yếu laptop / tablet) | Chủ phòng | Form cấu hình luật: phép tính, đếm ngược, số lần sai tối đa, thời gian reveal. Điền sẵn cấu hình lần trước |
+| Điều khiển phòng | `/host/:pin` | Mọi thiết bị (chủ yếu laptop / tablet) | Chủ phòng | Mã phòng + QR cho người chơi · danh sách người chơi, kick · sửa cấu hình khi đang ở sảnh · chọn fixed/random rồi bắt đầu · nút Câu tiếp theo, Bỏ qua, Help, Kết thúc ván, Ván mới, Đóng phòng · mở màn hình chính |
+| Màn hình chính | `/screen/:pin?token=<screen_token>` | Máy chiếu / TV / laptop (mở được trên điện thoại) | Cả phòng xem | Sảnh: PIN, mã hình, QR, danh sách người chơi kèm nhân vật · trong ván: phép tính, 4 đáp án, nhân vật và tên người đang trả lời, đồng hồ · sau khi đúng: lần lượt hiện vé có số đó với hiệu ứng khoanh · dải số đã ra · màn hình người thắng |
+| Người chơi | `/play/:pin` (hoặc `/play` để nhập mã) | Điện thoại, tablet hoặc laptop | Các bé | Quét QR, chọn 3 hình hoặc nhập PIN · nhập tên · chọn nhân vật · xem vé của mình bất cứ lúc nào · xem câu hỏi · nếu được chọn: bấm A/B/C/D hoặc Help · màn hình thắng/thua |
+
+**Responsive**: mọi màn hình phải dùng được cả trên laptop (trình duyệt desktop, chuột/bàn phím) và trên mobile web (điện thoại dọc và ngang, cảm ứng), từ bề rộng 360px tới 1920px. Không cuộn ngang; vùng bấm tối thiểu 44 × 44px; không phụ thuộc hover. Màn hình người chơi thiết kế mobile-first, trên laptop căn giữa với bề rộng tối đa hợp lý. Trang điều khiển trên điện thoại xếp thành một cột, nút điều khiển chính luôn trong tầm với. Màn hình chính tối ưu cho 1920 × 1080 nhưng co lại được trên laptop nhỏ và điện thoại (vé và đáp án vẫn đọc được).
 
 Chủ phòng chỉ điều khiển, không có vé. Muốn chơi cùng thì vào phòng bằng thiết bị hoặc tab khác như một người chơi bình thường. Màn hình chính chỉ hiển thị, không thao tác; mở từ nút trên trang điều khiển, dùng được ở tab khác hoặc máy khác.
 
