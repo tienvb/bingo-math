@@ -48,11 +48,24 @@
     "less": "Bớt",
     "more": "Thêm",
     "maxWrong": "Số lần sai tối đa trước khi đổi bạn",
-    "revealSeconds": "Thời gian hiện mỗi vé",
+    "revealSeconds": "Thời gian xem mỗi vé (giây)",
     "drawOnlyCardNumbers": "Chỉ bốc số có trên vé",
     "drawOnlyHint": "Nên bật khi ít người chơi để ván nhanh hơn.",
     "joinBaseInfo": "Địa chỉ cho người chơi: {url} (đổi được sau khi tạo phòng)",
-    "submit": "Tạo phòng"
+    "submit": "Tạo phòng",
+    "maxNumber": "Số lớn nhất",
+    "maxNumberHint": "Mọi số trên vé, trong phép tính và kết quả đều không lớn hơn số này. Phải lớn hơn 30.",
+    "maxNumberInvalid": "Hãy nhập một số nguyên, ví dụ 100",
+    "maxNumberTooSmall": "Số lớn nhất phải lớn hơn 30",
+    "maxNumberTooLarge": "Số này quá lớn, hãy nhập số nhỏ hơn",
+    "tooFewNumbers": "Với các phép tính đã chọn chỉ có {n} số dùng được, cần ít nhất {min}. Hãy tăng số lớn nhất hoặc bật thêm phép tính.",
+    "nextMode": "Chuyển câu",
+    "nextModes": {
+      "auto": "Tự động",
+      "autoHint": "Xem vé xong (hoặc bỏ qua) thì tự sang câu mới",
+      "manual": "Thủ công",
+      "manualHint": "Chờ chủ phòng bấm Câu tiếp theo"
+    }
   },
   "host": {
     "title": "Điều khiển phòng",
@@ -92,7 +105,12 @@
     "resetConfig": "Hoàn tác",
     "configSaved": "Đã lưu",
     "lastAnswerRight": "{name} chọn {key} ({value}): đúng",
-    "lastAnswerWrong": "{name} chọn {key} ({value}): chưa đúng"
+    "lastAnswerWrong": "{name} chọn {key} ({value}): chưa đúng",
+    "nextModeBadge": "Chuyển câu: {mode}",
+    "autoNextHint": "Chế độ Tự động: xem vé xong sẽ tự sang câu mới.",
+    "skippedAuto": "Đã bỏ qua số {n}, đã sang câu mới",
+    "readyExhausted": "Đã hết số để bốc. Hãy bấm Kết thúc ván.",
+    "revealTitle": "Đang khoanh số"
   },
   "join": {
     "title": "Địa chỉ cho người chơi",
@@ -147,7 +165,7 @@
     "waitStart": "Chờ chủ phòng bắt đầu…",
     "watchHint": "Cùng nghĩ đáp án nhé!",
     "youHaveIt": "Vé của bạn có số {n}!",
-    "youDontHaveIt": "Vé của bạn không có số {n}",
+    "youDontHaveIt": "Bạn không có số {n}",
     "waitNewRound": "Chờ chủ phòng bắt đầu ván mới…",
     "replaced": "Bạn đang chơi ở tab hoặc thiết bị khác",
     "replacedHint": "Vé và các ô đã khoanh vẫn được giữ nguyên.",
@@ -234,7 +252,7 @@
     "bad_token": "Không có quyền thực hiện thao tác này",
     "room_not_found": "Không tìm thấy phòng hoặc phòng đã đóng",
     "invalid_phase": "Không thể làm việc này lúc này",
-    "invalid_config": "Cấu hình chưa hợp lệ: cần bật ít nhất một phép tính và đủ số để tạo vé",
+    "invalid_config": "Cấu hình chưa hợp lệ: cần bật ít nhất một phép tính, số lớn nhất phải lớn hơn 30 và đủ số để tạo vé",
     "invalid_join_url": "Địa chỉ không hợp lệ (ví dụ: http://192.168.1.15:8080)",
     "too_many_rooms": "Đã có quá nhiều phòng, hãy thử lại sau",
     "player_not_found": "Không tìm thấy người chơi",

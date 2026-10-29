@@ -24,6 +24,7 @@ import type {
 import { WS_CLOSE } from '@/api/contract'
 import { createGameClient, type ConnectionStatus, type GameClient } from '@/api/gameClient'
 import { estimateOffset } from '@/utils/time'
+import { withConfigDefaults } from '@/utils/config'
 
 const sameCell = (a: Cell, b: Cell) => a[0] === b[0] && a[1] === b[1]
 
@@ -66,6 +67,8 @@ export const useGameStore = defineStore('game', () => {
   const card = ref<Card | null>(null)
   const marked = ref<Cell[]>([])
   const lastMarkedCell = ref<Cell | null>(null)
+  /** Số của cell_marked gần nhất (để chỉ dùng ô mới cho đúng lượt reveal của số đó). */
+  const lastMarkedNumber = ref<number | null>(null)
   /** Tăng mỗi lần nhận cell_marked, dùng làm key để chạy lại animation. */
   const markSeq = ref(0)
   /** Đã bấm đáp án/Help, chờ answer_result hoặc question mới. */
@@ -82,6 +85,20 @@ export const useGameStore = defineStore('game', () => {
   // ---- nhân vật (GET /api/avatars) ----
   const avatars = ref<Avatar[]>([])
   const avatarMap = computed(() => new Map(avatars.value.map((a) => [a.id, a])))
+
+  /**
+   * Ô mới của lượt reveal hiện tại trên vé của tôi (truyền vào BingoCard làm newCell).
+   * Chỉ có khi đang reveal và cell_marked nhận được là của đúng số đang reveal; không bao giờ lấy ô
+   * của lượt trước. Tải lại trang giữa reveal (không còn cell_marked) thì lấy new_cell trong reveal.items
+   * của chính mình, cũng là dữ liệu server của đúng số đó.
+   */
+  const myRevealCell = computed<Cell | null>(() => {
+    const r = reveal.value
+    if (phase.value !== 'reveal' || !r) return null
+    if (lastMarkedCell.value && lastMarkedNumber.value === r.number) return lastMarkedCell.value
+    const mine = me.value ? r.items.find((i) => i.player_id === me.value!.id) : undefined
+    return mine ? mine.new_cell : null
+  })
 
   const isMyTurn = computed(() => !!me.value && question.value?.answerer.id === me.value.id)
   const isWinner = computed(() => !!me.value && winners.value.some((w) => w.player_id === me.value!.id))
@@ -100,7 +117,7 @@ export const useGameStore = defineStore('game', () => {
     pictureCode.value = s.picture_code
     phase.value = s.phase
     joinUrl.value = s.join_url
-    config.value = s.config
+    config.value = withConfigDefaults(s.config)
     players.value = s.players
     answererMode.value = s.answerer_mode
     fixedPlayerId.value = s.fixed_player_id
@@ -113,6 +130,7 @@ export const useGameStore = defineStore('game', () => {
     card.value = s.card ?? null
     marked.value = s.marked ?? []
     lastMarkedCell.value = null
+    lastMarkedNumber.value = null
     lastAnswer.value = null
     lastSkipped.value = null
     gameOverReason.value = s.phase === 'finished' ? (s.winners.length ? 'bingo' : 'ended_by_host') : null
@@ -138,12 +156,13 @@ export const useGameStore = defineStore('game', () => {
       players.value = d.players
       if (me.value) me.value = d.players.find((p) => p.id === me.value!.id) ?? me.value
     },
-    config_updated: (d) => (config.value = d.config),
+    config_updated: (d) => (config.value = withConfigDefaults(d.config)),
     join_url_updated: (d) => (joinUrl.value = d.join_url),
     your_card: (d) => {
       card.value = d.card
       marked.value = d.marked
       lastMarkedCell.value = null
+    lastMarkedNumber.value = null
     },
     game_started: (d) => {
       answererMode.value = d.answerer_mode
@@ -172,6 +191,7 @@ export const useGameStore = defineStore('game', () => {
     cell_marked: (d) => {
       if (!marked.value.some((c) => sameCell(c, d.cell))) marked.value = [...marked.value, d.cell]
       lastMarkedCell.value = d.cell
+      lastMarkedNumber.value = d.number
       markSeq.value++
     },
     reveal: (d) => {
@@ -234,6 +254,7 @@ export const useGameStore = defineStore('game', () => {
     card.value = null
     marked.value = []
     lastMarkedCell.value = null
+    lastMarkedNumber.value = null
     answerLocked.value = false
     lastAnswer.value = null
     lastSkipped.value = null
@@ -294,7 +315,7 @@ export const useGameStore = defineStore('game', () => {
     ready, pin, pictureCode, phase, joinUrl, config, players, answererMode, fixedPlayerId,
     drawn, question, questionReason, reveal, winners,
     // người chơi
-    me, card, marked, lastMarkedCell, markSeq, isMyTurn, isWinner, answerLocked,
+    me, card, marked, lastMarkedCell, markSeq, myRevealCell, isMyTurn, isWinner, answerLocked,
     // sự kiện
     lastAnswer, lastSkipped, gameOverReason, kicked, roomClosed, lastError,
     // nhân vật

@@ -4,7 +4,9 @@ import { ApiError } from '../errors'
 import { MockServer } from './server'
 import { MockGameClient } from './mockClient'
 import { createMockRestApi } from './mockRest'
-import { availableNumbers, generateCard } from './algorithms'
+import { availableRanges, generateCard, generateOptions, generateProblem, isValidConfig, normalizeConfig } from './algorithms'
+import { availableCount, intervalsSize } from '@/utils/numberRange'
+import { configIssues } from '@/utils/config'
 
 const CONFIG: GameConfig = {
   operations: { add: true, sub: true, mul: true, div: true },
@@ -12,6 +14,8 @@ const CONFIG: GameConfig = {
   max_wrong: 2,
   reveal_seconds: 5,
   draw_only_card_numbers: true,
+  max_number: 100,
+  next_mode: 'manual',
 }
 
 const ALL_TYPES: ServerMessageType[] = [
@@ -41,7 +45,7 @@ describe('mock server', () => {
   })
 
   it('sinh vé đúng cột, không trùng, ô giữa là 0', () => {
-    const R = availableNumbers(CONFIG.operations)
+    const R = availableRanges(CONFIG.operations, 100)
     for (let i = 0; i < 200; i++) {
       const card = generateCard(R, Math.random)
       expect(card[2][2]).toBe(0)
@@ -253,5 +257,183 @@ describe('mock server', () => {
     await skp
     const tail = players[0].log.slice(-2).map((m) => m.type)
     expect(tail).toEqual(['question_skipped', 'phase_changed'])
+  })
+
+  it('max_number: |R| theo spec mục 1, kiểm tra form, thiếu field thì dùng mặc định', () => {
+    const only = (k: keyof GameConfig['operations']) => ({ add: false, sub: false, mul: false, div: false, [k]: true })
+    expect(availableCount(only('mul'), 100)).toBe(42)
+    expect(availableCount(only('mul'), 31)).toBe(22)
+    expect(availableCount(CONFIG.operations, 100)).toBe(100)
+    expect(availableCount(only('add'), 1_000_000)).toBe(999_999)
+    expect(configIssues({ ...CONFIG, operations: only('mul'), max_number: 31 })).toEqual(['too_few_numbers'])
+    expect(configIssues({ ...CONFIG, max_number: 30 })).toEqual(['max_number_too_small'])
+    expect(configIssues({ ...CONFIG, max_number: Number.NaN })).toEqual(['max_number_invalid'])
+    expect(configIssues({ ...CONFIG, max_number: 31 })).toEqual([])
+    const { max_number: _m, next_mode: _n, ...old } = CONFIG
+    const filled = normalizeConfig(old)!
+    expect(filled.max_number).toBe(100)
+    expect(filled.next_mode).toBe('auto')
+    expect(isValidConfig(filled)).toBe(true)
+    expect(isValidConfig({ ...CONFIG, max_number: 30 })).toBe(false)
+    // giới hạn kỹ thuật 2^53 − 1 (CHANGELOG 2026-10-29)
+    expect(configIssues({ ...CONFIG, max_number: Number.MAX_SAFE_INTEGER })).toEqual([])
+    expect(configIssues({ ...CONFIG, max_number: Number('9007199254740993') })).toEqual(['max_number_too_large'])
+    expect(configIssues({ ...CONFIG, max_number: 100.5 })).toEqual(['max_number_invalid'])
+    expect(isValidConfig({ ...CONFIG, max_number: Number.MAX_SAFE_INTEGER + 2 })).toBe(false)
+  })
+
+  it('M rất lớn: vé, phép tính, đáp án đều ≤ M, không dựng mảng đầy đủ', () => {
+    const M = 1_000_000_000
+    const R = availableRanges(CONFIG.operations, M)
+    expect(R.length).toBeLessThan(5) // vài đoạn, không phải 10^9 phần tử
+    expect(intervalsSize(R)).toBe(M)
+    for (let i = 0; i < 50; i++) {
+      const card = generateCard(R, Math.random)
+      const flat = card.flat().filter((n) => n)
+      expect(new Set(flat).size).toBe(24)
+      for (let c = 0; c < 5; c++)
+        for (let r = 0; r < 5; r++) {
+          const n = card[r][c]
+          if (!n) continue
+          expect(n).toBeLessThanOrEqual(M)
+          expect(Math.ceil(n / (M / 5)) - 1).toBe(c)
+          if (r > 0 && card[r - 1][c]) expect(n).toBeGreaterThan(card[r - 1][c])
+        }
+      const n = flat[i % 24]
+      const p = generateProblem(n, CONFIG.operations, Math.random, M)
+      for (const v of [p.a, p.b]) expect(v).toBeLessThanOrEqual(M)
+      const o = generateOptions(n, new Set(), null, Math.random, M, p)
+      expect(o.values).toContain(n)
+      expect(new Set(o.values).size).toBe(4)
+      for (const v of o.values) expect(v >= 1 && v <= M).toBe(true)
+    }
+    // M nhỏ: chia vẫn ≤ M
+    for (let i = 0; i < 200; i++) {
+      const p = generateProblem(7, { add: false, sub: false, mul: false, div: true }, Math.random, 31)
+      expect(p.a).toBeLessThanOrEqual(31)
+    }
+  })
+
+  it('next_mode auto: hết reveal → phase_changed{question} → question{new}; Bỏ qua → question_skipped → question{new}', async () => {
+    server.botCount = 0
+    const api = createMockRestApi(server, () => hostToken)
+    const cp = api.createRoom({ config: { ...CONFIG, next_mode: 'auto', reveal_seconds: 3, draw_only_card_numbers: false, max_number: 1_000_000 }, join_base_url: 'http://localhost:5173' })
+    await tick(100)
+    const room = await cp
+    hostToken = room.host_token
+    const jp = api.join(room.pin, { nickname: 'A', avatar_id: 'cat' })
+    await tick(100)
+    const j = await jp
+    const c = new MockGameClient(server)
+    const log = record(c)
+    c.connect(room.pin, 'player', j.player_token)
+    await tick(0)
+    const sp = api.start(room.pin, { answerer_mode: 'random', fixed_player_id: null })
+    await tick(100)
+    await sp
+
+    // Bỏ qua ở auto: không có phase_changed
+    let from = log.length
+    const skp = api.skip(room.pin)
+    await tick(100)
+    await skp
+    expect(log.slice(from).map((m) => m.type)).toEqual(['question_skipped', 'question'])
+    expect(log[log.length - 1].data.reason).toBe('new')
+
+    // Trả lời đúng → reveal → (3 giây × max(số vé, 1)) → phase_changed{question} → question{new}
+    const q = log[log.length - 1].data.question
+    for (const v of [q.a, q.b, ...q.options.map((o: { value: number }) => o.value)]) expect(v).toBeLessThanOrEqual(1_000_000)
+    c.send('submit_answer', { question_id: q.question_id, attempt: q.attempt, key: server.peekCorrectKey(room.pin)! })
+    await tick(0)
+    const rv = [...log].reverse().find((m) => m.type === 'reveal')!.data
+    expect(rv.seconds_per_card).toBe(3)
+    from = log.length
+    await tick(Math.max(rv.items.length, 1) * 3000 - 50)
+    expect(log.length).toBe(from) // chưa hết reveal
+    await tick(100)
+    const after = log.slice(from).map((m) => (m.type === 'phase_changed' ? `phase:${m.data.phase}` : m.type))
+    expect(after).toEqual(['phase:question', 'question'])
+    expect(log[log.length - 1].data.reason).toBe('new')
+    expect(log.some((m) => m.type === 'phase_changed' && m.data.phase === 'ready')).toBe(false)
+  })
+
+  it('next_mode auto: chơi tới bingo không bao giờ qua ready', async () => {
+    server.botCount = 0
+    const api = createMockRestApi(server, () => hostToken)
+    const cp = api.createRoom({ config: { ...CONFIG, next_mode: 'auto', reveal_seconds: 2 }, join_base_url: 'http://localhost:5173' })
+    await tick(100)
+    const room = await cp
+    hostToken = room.host_token
+    const jp = api.join(room.pin, { nickname: 'A', avatar_id: 'cat' })
+    await tick(100)
+    const j = await jp
+    const c = new MockGameClient(server)
+    const log = record(c)
+    c.connect(room.pin, 'player', j.player_token)
+    await tick(0)
+    const sp = api.start(room.pin, { answerer_mode: 'random', fixed_player_id: null })
+    await tick(100)
+    await sp
+    for (let i = 0; i < 40; i++) {
+      const last = [...log].reverse().find((m) => m.type === 'phase_changed')!.data.phase
+      if (last === 'finished' || last === 'ready') break
+      const q = [...log].reverse().find((m) => m.type === 'question')!.data.question
+      if (last === 'question') c.send('submit_answer', { question_id: q.question_id, attempt: q.attempt, key: server.peekCorrectKey(room.pin)! })
+      await tick(2100)
+    }
+    const phasesSeen = log.filter((m) => m.type === 'phase_changed').map((m) => m.data.phase)
+    expect(phasesSeen).not.toContain('ready')
+    expect(phasesSeen[phasesSeen.length - 1]).toBe('finished')
+  })
+
+  it('next_mode auto: kho bốc hết khi cần câu mới → phase_changed{ready}', async () => {
+    server.botCount = 1
+    const api = createMockRestApi(server, () => hostToken)
+    const cp = api.createRoom({ config: { ...CONFIG, next_mode: 'auto' }, join_base_url: 'http://localhost:5173' })
+    await tick(100)
+    const room = await cp
+    hostToken = room.host_token
+    const c = new MockGameClient(server)
+    const log = record(c)
+    c.connect(room.pin, 'host', room.host_token)
+    const sp = api.start(room.pin, { answerer_mode: 'random', fixed_player_id: null })
+    await tick(100)
+    await sp
+    // Giả lập kho đã hết: mọi số trên vé đều đã ra (chỉ để kiểm nhánh, không qua luật bingo).
+    const r = (server as unknown as { rooms: Map<string, { players: { card: number[][] }[]; drawn: number[]; advance(): void; clearAllTimers(): void }> }).rooms.get(room.pin)!
+    r.clearAllTimers()
+    r.drawn = r.players.flatMap((p) => p.card.flat().filter((n) => n))
+    const from = log.length
+    r.advance()
+    await tick(0)
+    expect(log.slice(from).map((m) => m.type)).toEqual(['phase_changed'])
+    expect(log[log.length - 1].data.phase).toBe('ready')
+  })
+
+  it('next_mode auto: Bỏ qua khi kho chỉ còn số vừa bỏ → hỏi lại số đó (question_skipped → question{new})', async () => {
+    server.botCount = 1
+    const api = createMockRestApi(server, () => hostToken)
+    const cp = api.createRoom({ config: { ...CONFIG, next_mode: 'auto' }, join_base_url: 'http://localhost:5173' })
+    await tick(100)
+    const room = await cp
+    hostToken = room.host_token
+    const c = new MockGameClient(server)
+    const log = record(c)
+    c.connect(room.pin, 'host', room.host_token)
+    const sp = api.start(room.pin, { answerer_mode: 'random', fixed_player_id: null })
+    await tick(100)
+    await sp
+    type R = { players: { card: number[][] }[]; drawn: number[]; q: { number: number } | null; clearAllTimers(): void }
+    const r = (server as unknown as { rooms: Map<string, R> }).rooms.get(room.pin)!
+    const n = r.q!.number
+    r.clearAllTimers()
+    r.drawn = r.players.flatMap((p) => p.card.flat().filter((x) => x && x !== n)) // chỉ còn n trong kho
+    const from = log.length
+    const skp = api.skip(room.pin)
+    await tick(100)
+    await skp
+    expect(log.slice(from).map((m) => m.type)).toEqual(['question_skipped', 'question'])
+    expect(log[log.length - 1].data.reason).toBe('new')
+    expect(r.q!.number).toBe(n)
   })
 })

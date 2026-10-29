@@ -59,6 +59,7 @@ const cells = computed(() =>
         k,
         n,
         free: k === FREE,
+        d: k === FREE ? 2 : String(n).length,
         isNew,
         marked: markedSet.value.has(k) || isNew,
         win: winOrder.value.has(k),
@@ -82,7 +83,7 @@ const ariaLabel = computed(() =>
       <div
         v-for="cell in cells" :key="cell.k" role="gridcell" class="cell"
         :class="{ free: cell.free, marked: cell.marked, 'is-new': cell.isNew, animate: cell.isNew && animateNew, win: cell.win }"
-        :style="cell.win ? { '--win-delay': cell.winDelay } : undefined"
+        :style="{ '--d': cell.d, ...(cell.win ? { '--win-delay': cell.winDelay } : {}) }"
         :aria-label="cell.free ? t('card.free') : String(cell.n)"
         :aria-selected="cell.marked"
       >
@@ -115,9 +116,12 @@ const ariaLabel = computed(() =>
   display: grid; place-items: center; background: #fdf6ea;
   font-weight: 900; font-variant-numeric: tabular-nums; color: var(--c-text);
   font-size: 1.1rem; font-size: 8.5cqi; line-height: 1; user-select: none;
+  /* số nhiều chữ số (max_number lớn): thu chữ cho vừa ô, không tràn */
+  font-size: min(8.5cqi, calc(16cqi / (var(--d, 2) * 0.6)));
+  min-width: 0; overflow: hidden;
 }
 .cell.free { background: color-mix(in srgb, var(--card-color) 22%, #fff); color: var(--c-text); font-size: 0.7rem; font-size: 4.6cqi; letter-spacing: 0.02em; }
-.num { position: relative; z-index: 1; }
+.num { position: relative; z-index: 1; white-space: nowrap; letter-spacing: -0.02em; }
 .ring { position: absolute; inset: 4%; width: 92%; height: 92%; overflow: visible; pointer-events: none; z-index: 2; }
 .ring circle {
   fill: none; stroke: var(--c-mark); stroke-linecap: round;

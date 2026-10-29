@@ -25,6 +25,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "max_wrong": 2,
     "reveal_seconds": 2,
     "draw_only_card_numbers": True,
+    "max_number": 100,
+    # Older flow tests drive `ready` -> POST /next; auto mode has its own tests.
+    "next_mode": "manual",
 }
 BASE_URL = "http://192.168.1.15:8080"
 

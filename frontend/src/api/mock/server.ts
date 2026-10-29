@@ -31,17 +31,20 @@ import { ROOM_ICONS, WS_CLOSE } from '../contract'
 import { ApiError } from '../errors'
 import {
   OPTION_KEYS,
-  availableNumbers,
+  availableRanges,
+  drawFromRanges,
   findCell,
   generateCard,
   generateOptions,
   generateProblem,
   isValidConfig,
   markedCells,
+  normalizeConfig,
   pick,
   randomId,
   shuffle,
   winningLines,
+  type Interval,
   type MathProblem,
   type Rng,
 } from './algorithms'
@@ -51,7 +54,6 @@ const MAX_PLAYERS = 30
 const MAX_ROOMS = 20
 const BOT_ANSWER_MS = 2000
 const DISCONNECT_GRACE_MS = 10_000
-const NO_ONE_REVEAL_SECONDS = 5
 
 export const BOT_NAMES = ['Bin', 'Na', 'Tí']
 
@@ -163,8 +165,13 @@ class MockRoom {
   get join_url(): string {
     return `${this.joinBase}/play/${this.pin}`
   }
-  get R(): number[] {
-    return availableNumbers(this.config.operations)
+  /** Tập R dạng đoạn số (M có thể rất lớn). */
+  get R(): Interval[] {
+    return availableRanges(this.config.operations, this.config.max_number)
+  }
+  /** Thời lượng reveal = max(số vé, 1) × reveal_seconds. */
+  revealMs(r: Reveal): number {
+    return Math.max(r.items.length, 1) * r.seconds_per_card * 1000
   }
 
   // ---- timer ----
@@ -288,20 +295,31 @@ class MockRoom {
     }
   }
 
-  drawPool(): number[] {
+  /** Bốc một số chưa ra (tránh số vừa bỏ qua nếu còn số khác). null nếu kho hết. */
+  drawNumber(): number | null {
     const drawn = this.drawnSet()
-    const onCards = new Set<number>()
-    this.players.forEach((p) => p.card.flat().forEach((n) => n && onCards.add(n)))
-    return this.R.filter((n) => !drawn.has(n) && (!this.config.draw_only_card_numbers || onCards.has(n)))
+    const skipped = this.lastSkipped
+    if (this.config.draw_only_card_numbers) {
+      const onCards = new Set<number>()
+      this.players.forEach((p) => p.card.flat().forEach((n) => n && !drawn.has(n) && onCards.add(n)))
+      let pool = [...onCards]
+      if (skipped != null && pool.length > 1) pool = pool.filter((n) => n !== skipped)
+      return pool.length ? pick(this.rng, pool) : null
+    }
+    const R = this.R
+    const n = drawFromRanges(R, (x) => drawn.has(x) || x === skipped, drawn.size + (skipped != null && !drawn.has(skipped) ? 1 : 0), this.rng)
+    if (n != null) return n
+    return skipped != null && !drawn.has(skipped) ? skipped : null
   }
 
-  /** Bốc số + tạo câu hỏi mới. Trả false nếu hết số. */
-  newQuestion(): boolean {
-    let pool = this.drawPool()
-    if (!pool.length) return false
-    if (this.lastSkipped != null && pool.length > 1) pool = pool.filter((n) => n !== this.lastSkipped)
+  /**
+   * Bốc số + tạo câu hỏi mới. Trả false nếu hết số.
+   * `announcePhase = false` khi phase đã là question (auto: Bỏ qua → question_skipped → question{new}).
+   */
+  newQuestion(announcePhase = true): boolean {
+    const n = this.drawNumber()
+    if (n == null) return false
     this.lastSkipped = null
-    const n = pick(this.rng, pool)
     const connected = this.connectedIds()
     let answererId: string
     if (this.answerer_mode === 'fixed' && this.fixed_player_id && connected.includes(this.fixed_player_id)) {
@@ -310,12 +328,14 @@ class MockRoom {
       answererId = pick(this.rng, connected.length ? connected : this.players.map((p) => p.info.id))
     }
     const usedWrong = new Set<number>()
-    const opts = generateOptions(n, usedWrong, null, this.rng)
+    const M = this.config.max_number
+    const problem = generateProblem(n, this.config.operations, this.rng, M)
+    const opts = generateOptions(n, usedWrong, null, this.rng, M, problem)
     this.q = {
       question_id: randomId(12),
       attempt: 1,
       number: n,
-      problem: generateProblem(n, this.config.operations, this.rng),
+      problem,
       values: opts.values,
       correctIndex: opts.correctIndex,
       answererId,
@@ -325,7 +345,7 @@ class MockRoom {
       deadline: null,
     }
     this.reveal = null
-    this.setPhase('question')
+    if (announcePhase || this.phase !== 'question') this.setPhase('question')
     this.emitQuestion('new')
     return true
   }
@@ -333,7 +353,7 @@ class MockRoom {
   regenerateOptions(): void {
     const q = this.q!
     q.values.forEach((v, i) => i !== q.correctIndex && q.usedWrong.add(v))
-    const opts = generateOptions(q.number, q.usedWrong, q.correctIndex, this.rng)
+    const opts = generateOptions(q.number, q.usedWrong, q.correctIndex, this.rng, this.config.max_number, q.problem)
     q.values = opts.values
     q.correctIndex = opts.correctIndex
     q.attempt += 1
@@ -450,8 +470,7 @@ class MockRoom {
     }
     this.setPhase('reveal')
     this.broadcast('reveal', structuredClone(this.reveal))
-    const secs = items.length ? items.length * this.config.reveal_seconds : NO_ONE_REVEAL_SECONDS
-    this.setTimer('reveal', secs * 1000, () => this.afterReveal())
+    this.setTimer('reveal', this.revealMs(this.reveal), () => this.afterReveal())
   }
 
   afterReveal(): void {
@@ -471,7 +490,16 @@ class MockRoom {
       }
     }
     if (winners.length) this.finish('bingo', winners)
-    else this.setPhase('ready')
+    else this.advance()
+  }
+
+  /** Sau reveal không bingo / sau Bỏ qua: auto thì ra câu mới ngay (kho hết thì ready), manual thì ready. */
+  advance(): void {
+    if (this.config.next_mode === 'auto') {
+      // reveal → question: phase_changed{question} → question{new}; Bỏ qua (đang question): chỉ question{new}
+      if (this.newQuestion(this.phase !== 'question')) return
+    }
+    this.setPhase('ready')
   }
 
   finish(reason: 'bingo' | 'ended_by_host', winners: Winner[]): void {
@@ -545,8 +573,7 @@ class MockRoom {
       }
     } else if (this.phase === 'reveal' && this.reveal) {
       const r = this.reveal
-      const secs = r.items.length ? r.items.length * r.seconds_per_card : NO_ONE_REVEAL_SECONDS
-      const left = Math.max(0, Date.parse(r.started_at) + secs * 1000 - Date.now())
+      const left = Math.max(0, Date.parse(r.started_at) + this.revealMs(r) - Date.now())
       this.setTimer('reveal', left, () => this.afterReveal())
     }
   }
@@ -595,10 +622,11 @@ export class MockServer {
   // ---------------- REST ----------------
 
   createRoom(body: CreateRoomRequest): CreateRoomResponse {
-    if (!body?.config || !isValidConfig(body.config)) fail(422, 'invalid_config')
+    const config = normalizeConfig(body?.config)
+    if (!config || !isValidConfig(config)) fail(422, 'invalid_config')
     const base = normalizeJoinBase(body.join_base_url) ?? fail(422, 'invalid_join_url')
     if (this.rooms.size >= MAX_ROOMS) fail(503, 'too_many_rooms')
-    const room = new MockRoom(this, this.genPin(), this.genPictures(), structuredClone(body.config), base)
+    const room = new MockRoom(this, this.genPin(), this.genPictures(), structuredClone(config!), base)
     this.rooms.set(room.pin, room)
     for (let i = 0; i < this.botCount; i++) {
       room.addPlayer(BOT_NAMES[i % BOT_NAMES.length], MOCK_AVATARS[(i * 4 + 1) % MOCK_AVATARS.length].id, true)
@@ -634,11 +662,12 @@ export class MockServer {
     return { ok: true as const }
   }
 
-  updateConfig(pin: string, token: string | undefined, config: GameConfig): GameConfig {
+  updateConfig(pin: string, token: string | undefined, raw: GameConfig): GameConfig {
     const r = this.hostRoom(pin, token)
     if (r.phase !== 'lobby' && r.phase !== 'finished') fail(409, 'invalid_phase')
-    if (!isValidConfig(config)) fail(422, 'invalid_config')
-    r.config = structuredClone(config)
+    const config = normalizeConfig(raw)
+    if (!config || !isValidConfig(config)) fail(422, 'invalid_config')
+    r.config = structuredClone(config!)
     r.broadcast('config_updated', { config: structuredClone(r.config) })
     if (r.phase === 'lobby') {
       for (const p of r.players) {
@@ -700,7 +729,8 @@ export class MockServer {
     r.lastSkipped = q.number
     r.q = null
     r.broadcast('question_skipped', { question_id: q.question_id, number: q.number })
-    r.setPhase('ready')
+    // manual: question_skipped → phase_changed{ready}; auto: question_skipped → question{new} (vẫn phase question)
+    r.advance()
     return { ok: true as const }
   }
 

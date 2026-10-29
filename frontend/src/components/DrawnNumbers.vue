@@ -28,8 +28,8 @@ const items = computed(() => [...props.drawn].reverse())
 .none { margin: 0; }
 .list { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0; margin: 0; min-width: 0; flex: 1; }
 .scroll .list { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 0.2rem; }
-.ball {
-  flex: none; width: 2.2em; height: 2.2em; border-radius: 50%; display: grid; place-items: center;
+.ball { box-sizing: border-box; white-space: nowrap; max-width: 100%;
+  flex: none; min-width: 2.2em; height: 2.2em; padding: 0 0.45em; border-radius: 999px; display: grid; place-items: center;
   background: #fff; border: 2px solid var(--c-border); font-weight: 900; font-variant-numeric: tabular-nums; font-size: 0.95rem;
 }
 .ball.latest { background: var(--c-mark); color: #fff; border-color: var(--c-mark); transform: scale(1.15); animation: pop-in 0.4s ease-out; }

@@ -7,34 +7,22 @@ import { api } from '@/api/rest'
 import { useSessionStore } from '@/stores/session'
 import { useErrorText } from '@/composables/useErrorText'
 import ConfigForm from '@/components/ConfigForm.vue'
-
-const DEFAULT_CONFIG: GameConfig = {
-  operations: { add: true, sub: true, mul: true, div: true },
-  timer_seconds: 0,
-  max_wrong: 2,
-  reveal_seconds: 5,
-  draw_only_card_numbers: true,
-}
+import { configIssues, defaultConfig } from '@/utils/config'
 
 const { t } = useI18n()
 const router = useRouter()
 const session = useSessionStore()
 const errText = useErrorText()
 
+/** Cấu hình lần trước (đã bù mặc định cho field mới) hoặc mặc định của spec. */
 function initialConfig(): GameConfig {
-  const last = session.loadLastConfig()
-  if (!last || typeof last !== 'object' || !last.operations) return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as GameConfig
-  return {
-    ...DEFAULT_CONFIG,
-    ...last,
-    operations: { ...DEFAULT_CONFIG.operations, ...last.operations },
-  }
+  return session.loadLastConfig() ?? defaultConfig()
 }
 
 const config = ref<GameConfig>(initialConfig())
 const busy = ref(false)
 const error = ref<string | null>(null)
-const valid = computed(() => Object.values(config.value.operations).some(Boolean))
+const valid = computed(() => configIssues(config.value).length === 0)
 const joinBase = computed(() => session.resolveJoinBaseUrl())
 
 async function submit() {

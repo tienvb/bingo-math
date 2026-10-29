@@ -314,7 +314,7 @@ REST dùng để tạo phòng, gửi lệnh của chủ phòng và cho người 
 }
 ```
 
-`timer_seconds`: 0 là tắt, ngược lại 5–120. `max_wrong`: 1–5. `reveal_seconds`: 2–15, mặc định 3. `max_number`: số nguyên > 30, không giới hạn trên, mặc định 100. `next_mode`: `"auto"` (mặc định) hoặc `"manual"`. Không hợp lệ (không bật phép nào, `max_number` ≤ 30, hoặc |R| < 25) trả 422 `invalid_config`. Request thiếu `max_number` / `next_mode` thì server dùng giá trị mặc định.
+`timer_seconds`: 0 là tắt, ngược lại 5–120. `max_wrong`: 1–5. `reveal_seconds`: 2–15, mặc định 3. `max_number`: số nguyên > 30, mặc định 100, không giới hạn trên về luật chơi; giới hạn kỹ thuật 9007199254740991 (2^53 − 1, số nguyên lớn nhất JavaScript biểu diễn chính xác). `next_mode`: `"auto"` (mặc định) hoặc `"manual"`. Không hợp lệ (không bật phép nào, `max_number` ≤ 30, hoặc |R| < 25) trả 422 `invalid_config`. Request thiếu `max_number` / `next_mode` thì server dùng giá trị mặc định.
 
 **Endpoint** (`{pin}` là PIN của phòng)
 

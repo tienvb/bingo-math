@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { GameConfig } from '@/api/contract'
+import type { GameConfig, NextMode } from '@/api/contract'
+import { configIssues } from '@/utils/config'
+import { MIN_R_SIZE, availableCount } from '@/utils/numberRange'
 
 const props = defineProps<{ modelValue: GameConfig; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [GameConfig] }>()
@@ -38,7 +40,34 @@ function setNum(field: 'timer_seconds' | 'max_wrong' | 'reveal_seconds', raw: st
   const n = Number(raw)
   if (Number.isFinite(n)) patch({ [field]: clamp(n, lim) } as Partial<GameConfig>)
 }
-const noOps = computed(() => !Object.values(cfg.value.operations).some(Boolean))
+const issues = computed(() => configIssues(cfg.value))
+const noOps = computed(() => issues.value.includes('no_operation'))
+
+// ---- Số lớn nhất (max_number): giữ chuỗi đang gõ để báo lỗi ngay, kể cả khi chưa hợp lệ ----
+const maxText = ref(String(cfg.value.max_number))
+watch(
+  () => cfg.value.max_number,
+  (m) => {
+    if (Number(maxText.value.trim()) !== m) maxText.value = Number.isFinite(m) ? String(m) : ''
+  },
+)
+function onMaxInput(raw: string) {
+  maxText.value = raw
+  const v = raw.trim()
+  // Chỉ nhận chữ số; rỗng hoặc ký tự lạ → NaN để form báo "hãy nhập số nguyên".
+  patch({ max_number: /^\d+$/.test(v) ? Number(v) : Number.NaN })
+}
+const maxError = computed(() => {
+  const i = issues.value
+  if (i.includes('max_number_invalid')) return t('create.maxNumberInvalid')
+  if (i.includes('max_number_too_small')) return t('create.maxNumberTooSmall')
+  if (i.includes('max_number_too_large')) return t('create.maxNumberTooLarge')
+  if (i.includes('too_few_numbers'))
+    return t('create.tooFewNumbers', { n: availableCount(cfg.value.operations, cfg.value.max_number) ?? 0, min: MIN_R_SIZE })
+  return null
+})
+
+const NEXT_MODES: NextMode[] = ['auto', 'manual']
 </script>
 
 <template>
@@ -55,6 +84,30 @@ const noOps = computed(() => !Object.values(cfg.value.operations).some(Boolean))
         </button>
       </div>
       <p v-if="noOps" class="error-text">{{ t('create.needOperation') }}</p>
+    </fieldset>
+
+    <div class="group">
+      <label class="field-label" for="cfg-max-number">{{ t('create.maxNumber') }}</label>
+      <input
+        id="cfg-max-number" class="input max-num" type="text" inputmode="numeric" autocomplete="off" spellcheck="false"
+        :value="maxText" :disabled="disabled" :aria-invalid="!!maxError" aria-describedby="cfg-max-number-hint"
+        @input="onMaxInput(($event.target as HTMLInputElement).value)"
+      />
+      <p v-if="maxError" class="error-text" role="alert">{{ maxError }}</p>
+      <p id="cfg-max-number-hint" class="muted hint">{{ t('create.maxNumberHint') }}</p>
+    </div>
+
+    <fieldset class="group">
+      <legend class="field-label">{{ t('create.nextMode') }}</legend>
+      <div class="modes" role="radiogroup" :aria-label="t('create.nextMode')">
+        <button
+          v-for="m in NEXT_MODES" :key="m" type="button" class="mode" :class="{ on: cfg.next_mode === m }"
+          role="radio" :aria-checked="cfg.next_mode === m" :disabled="disabled" @click="patch({ next_mode: m })"
+        >
+          <strong>{{ t(`create.nextModes.${m}`) }}</strong>
+          <span class="mode-hint">{{ t(`create.nextModes.${m}Hint`) }}</span>
+        </button>
+      </div>
     </fieldset>
 
     <div class="group">
@@ -142,4 +195,16 @@ legend { padding: 0; margin-bottom: 0.5rem; }
 .check { flex-direction: row; align-items: flex-start; gap: 0.7rem; cursor: pointer; }
 .check input { width: 28px; height: 28px; margin: 0.1rem 0 0; flex: none; accent-color: var(--c-success); }
 .disabled { opacity: 0.7; }
+.max-num { width: 100%; max-width: 18rem; font-weight: 900; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.max-num[aria-invalid='true'] { border-color: var(--c-danger); }
+.modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.mode {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; text-align: left;
+  min-height: 64px; padding: 0.6rem 0.8rem; border-radius: 1rem; border: 3px solid var(--c-border); background: #fff;
+  font: inherit; color: var(--c-text); cursor: pointer; touch-action: manipulation; min-width: 0;
+}
+.mode strong { font-size: 1.1rem; }
+.mode-hint { font-size: 0.88rem; color: var(--c-muted); font-weight: 700; }
+.mode.on { border-color: var(--c-success); background: #e6f8ee; }
+@media (max-width: 400px) { .modes { grid-template-columns: minmax(0, 1fr); } }
 </style>

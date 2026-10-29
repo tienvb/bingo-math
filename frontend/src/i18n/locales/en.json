@@ -48,11 +48,24 @@
     "less": "Less",
     "more": "More",
     "maxWrong": "Wrong answers before switching player",
-    "revealSeconds": "Seconds to show each card",
+    "revealSeconds": "Time to show each card (seconds)",
     "drawOnlyCardNumbers": "Only draw numbers on cards",
     "drawOnlyHint": "Recommended with few players for faster games.",
     "joinBaseInfo": "Player address: {url} (can be changed after creating)",
-    "submit": "Create room"
+    "submit": "Create room",
+    "maxNumber": "Largest number",
+    "maxNumberHint": "Every number on the cards, in the questions and in the answers is at most this number. Must be greater than 30.",
+    "maxNumberInvalid": "Please enter a whole number, for example 100",
+    "maxNumberTooSmall": "The largest number must be greater than 30",
+    "maxNumberTooLarge": "This number is too large, please enter a smaller one",
+    "tooFewNumbers": "With the selected operations only {n} numbers are possible, at least {min} are needed. Raise the largest number or turn on more operations.",
+    "nextMode": "Next question",
+    "nextModes": {
+      "auto": "Automatic",
+      "autoHint": "After the cards are shown (or a skip), the next question starts by itself",
+      "manual": "Manual",
+      "manualHint": "Wait for the host to press Next question"
+    }
   },
   "host": {
     "title": "Room control",
@@ -92,7 +105,12 @@
     "resetConfig": "Undo",
     "configSaved": "Saved",
     "lastAnswerRight": "{name} chose {key} ({value}): correct",
-    "lastAnswerWrong": "{name} chose {key} ({value}): not quite"
+    "lastAnswerWrong": "{name} chose {key} ({value}): not quite",
+    "nextModeBadge": "Next question: {mode}",
+    "autoNextHint": "Automatic mode: the next question starts after the cards are shown.",
+    "skippedAuto": "Skipped number {n}, moved to a new question",
+    "readyExhausted": "No numbers left to draw. Press End game.",
+    "revealTitle": "Marking numbers"
   },
   "join": {
     "title": "Address for players",
@@ -147,7 +165,7 @@
     "waitStart": "Waiting for the host to start…",
     "watchHint": "Think of the answer too!",
     "youHaveIt": "Your card has {n}!",
-    "youDontHaveIt": "Your card doesn't have {n}",
+    "youDontHaveIt": "You don't have {n}",
     "waitNewRound": "Waiting for the host to start a new round…",
     "replaced": "You are playing in another tab or device",
     "replacedHint": "Your card and marked numbers are kept.",
@@ -234,7 +252,7 @@
     "bad_token": "You are not allowed to do this",
     "room_not_found": "Room not found or already closed",
     "invalid_phase": "This can't be done right now",
-    "invalid_config": "Invalid settings: enable at least one operation with enough numbers for a card",
+    "invalid_config": "Invalid settings: turn on at least one operation, the largest number must be greater than 30, and there must be enough numbers for the cards",
     "invalid_join_url": "Invalid address (e.g. http://192.168.1.15:8080)",
     "too_many_rooms": "Too many rooms, please try again later",
     "player_not_found": "Player not found",

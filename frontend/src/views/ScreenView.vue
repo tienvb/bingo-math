@@ -122,7 +122,7 @@ watch(phase, (p) => {
           </template>
           <template v-else-if="lastNumber !== null">
             <p class="muted">{{ t('screen.lastNumber') }}</p>
-            <strong class="last">{{ lastNumber }}</strong>
+            <strong class="last" :style="{ '--d': String(lastNumber).length }">{{ lastNumber }}</strong>
           </template>
           <p class="ready-title">{{ t('screen.waitingNext') }}</p>
         </div>
@@ -171,7 +171,7 @@ watch(phase, (p) => {
 
 .ready { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .ready .muted { font-size: clamp(1.2rem, 2.5vw, 2rem); margin: 0; }
-.last { font-size: clamp(5rem, 22vh, 14rem); line-height: 1; color: var(--c-mark); font-weight: 900; }
+.last { font-size: min(clamp(5rem, 22vh, 14rem), calc(92vw / (var(--d, 2) * 0.62))); line-height: 1; color: var(--c-mark); font-weight: 900; white-space: nowrap; }
 .ready-title { font-size: clamp(1.4rem, 3.2vw, 3rem); font-weight: 900; margin: 0; }
 .ended { text-align: center; }
 .ended h1 { font-size: clamp(2rem, 5vw, 4.5rem); }

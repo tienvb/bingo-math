@@ -190,7 +190,11 @@ function askHelp() {
   game.requestHelp()
 }
 
-const hasNewNumber = computed(() => !!game.reveal && !!game.me && game.reveal.items.some((i) => i.player_id === game.me!.id))
+// Ô mới chỉ lấy từ cell_marked của đúng số đang reveal (store.myRevealCell); không có thì không khoanh ô nào.
+const revealCell = computed(() => game.myRevealCell)
+const hasNewNumber = computed(() => !!revealCell.value)
+/** Đổi key theo số đang reveal để vé không giữ ô mới / animation của lượt trước. */
+const cardKey = computed(() => (phase.value === 'reveal' && game.reveal ? `r-${game.reveal.number}-${revealCell.value ? 'new' : 'none'}` : 'static'))
 const myWinner = computed(() => game.winners.find((w) => w.player_id === game.me?.id) ?? null)
 
 // Kết nối bị đóng hẳn
@@ -301,12 +305,12 @@ function retry() {
             <p v-else-if="phase === 'lobby'" class="notice">{{ t('play.waitStart') }}</p>
             <BingoCard
               v-if="game.card"
-              :key="game.markSeq"
+              :key="cardKey"
               class="my-card"
               :card="game.card"
               :marked="game.marked"
-              :new-cell="game.lastMarkedCell"
-              :animate-new="!!game.lastMarkedCell"
+              :new-cell="revealCell"
+              :animate-new="!!revealCell"
               size="md"
             />
             <DrawnNumbers :drawn="game.drawn" size="sm" />

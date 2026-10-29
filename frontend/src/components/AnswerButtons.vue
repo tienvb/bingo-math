@@ -37,7 +37,7 @@ const { t } = useI18n()
       @click="interactive && !disabled && emit('choose', o.key)"
     >
       <span class="key">{{ o.key }}</span>
-      <span class="val">{{ o.value }}</span>
+      <span class="val" :style="{ '--d': String(o.value).length }">{{ o.value }}</span>
     </component>
   </div>
 </template>
@@ -62,9 +62,15 @@ button.opt:disabled { cursor: not-allowed; }
   position: absolute; top: 0.45rem; left: 0.6rem; font-size: clamp(1rem, 3vw, 1.4rem);
   width: 1.8em; height: 1.8em; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.28);
 }
-.val { font-size: clamp(2.2rem, 10vw, 3.6rem); font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15); }
+.opt { container-type: inline-size; min-width: 0; }
+.val {
+  font-size: clamp(2.2rem, 10vw, 3.6rem); font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  white-space: nowrap; max-width: 100%;
+  /* số nhiều chữ số: thu chữ theo bề rộng nút (chừa chỗ cho nhãn A/B/C/D) */
+  font-size: min(clamp(2.2rem, 10vw, 3.6rem), calc(78cqi / (var(--d, 2) * 0.62)));
+}
 .lg .opt { min-height: clamp(56px, 16vh, 210px); border-radius: 1.8rem; }
-.lg .val { font-size: clamp(2rem, min(7vw, 11vh), 6.5rem); }
+.lg .val { font-size: min(clamp(2rem, min(7vw, 11vh), 6.5rem), calc(78cqi / (var(--d, 2) * 0.62))); }
 .lg .key { font-size: clamp(1.1rem, 2.2vw, 2.2rem); }
 .dim { opacity: 0.45; }
 .pending { outline: 5px solid #fff; outline-offset: -9px; animation: pulse 0.9s ease-in-out infinite; }
@@ -76,7 +82,7 @@ button.opt:disabled { cursor: not-allowed; }
 @media (orientation: landscape) and (max-height: 520px) {
   .answers { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
   .opt, .lg .opt { min-height: clamp(52px, 17vh, 76px); border-radius: 1rem; box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 70%, #000); }
-  .val, .lg .val { font-size: clamp(1.5rem, 10vh, 2.4rem); }
+  .val, .lg .val { font-size: min(clamp(1.5rem, 10vh, 2.4rem), calc(80cqi / (var(--d, 2) * 0.62))); }
   .key, .lg .key { top: 0.25rem; left: 0.3rem; font-size: 0.8rem; }
 }
 </style>

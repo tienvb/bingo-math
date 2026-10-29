@@ -13,6 +13,7 @@ from app.game.bingo import (
     winning_lines,
 )
 from app.game.cards import generate_card
+from app.game.numbers import ALL_OPS, number_set
 
 
 def _cells(line) -> list[tuple[int, int]]:
@@ -61,7 +62,7 @@ def test_scattered_marks_no_bingo() -> None:
 
 def test_free_cell_counts_on_card() -> None:
     rng = random.Random(4)
-    card = generate_card(list(range(1, 101)), rng)
+    card = generate_card(number_set(ALL_OPS, 100), rng)
     row2 = [card[2][c] for c in range(5) if c != 2]
     assert not card_winning_lines(card, row2[:-1])
     lines = card_winning_lines(card, row2)
@@ -71,7 +72,7 @@ def test_free_cell_counts_on_card() -> None:
 
 def test_multiple_lines_at_once() -> None:
     rng = random.Random(8)
-    card = generate_card(list(range(1, 101)), rng)
+    card = generate_card(number_set(ALL_OPS, 100), rng)
     drawn = [card[0][c] for c in range(5)] + [card[r][0] for r in range(1, 5)]
     lines = card_winning_lines(card, drawn)
     assert {(l.type, l.index) for l in lines} == {("row", 0), ("col", 0)}
@@ -79,6 +80,6 @@ def test_multiple_lines_at_once() -> None:
 
 def test_marked_cells_excludes_free() -> None:
     rng = random.Random(6)
-    card = generate_card(list(range(1, 101)), rng)
+    card = generate_card(number_set(ALL_OPS, 100), rng)
     drawn = [card[4][4], card[0][2], 999]
     assert marked_cells(card, drawn) == [(0, 2), (4, 4)]

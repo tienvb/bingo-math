@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { GameConfig } from '@/api/contract'
+import { withConfigDefaults } from '@/utils/config'
 import { readJson, readString, removeKey, writeJson, writeString } from '@/utils/storage'
 
 /** Token và thông tin đã lưu cho một PIN. */
@@ -42,8 +43,10 @@ export function getHostToken(pin: string): string | undefined {
   return loadPinSession(pin).host_token
 }
 
+/** Cấu hình lần trước; bản lưu cũ thiếu field mới (max_number, next_mode) thì bù mặc định. */
 export function loadLastConfig(): GameConfig | null {
-  return readJson<GameConfig>(KEY_LAST_CONFIG)
+  const raw = readJson<unknown>(KEY_LAST_CONFIG)
+  return raw && typeof raw === 'object' ? withConfigDefaults(raw) : null
 }
 
 export function saveLastConfig(config: GameConfig): void {

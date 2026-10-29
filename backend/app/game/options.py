@@ -6,12 +6,13 @@ import random
 from collections.abc import Collection
 from dataclasses import dataclass
 
-from app.game.numbers import MAX_NUMBER, MIN_NUMBER
+from app.game.numbers import MIN_NUMBER
 from app.game.questions import Expression
 
 OPTION_KEYS: tuple[str, str, str, str] = ("A", "B", "C", "D")
 WRONG_COUNT = 3
 FILL_RADIUS = 15
+WIDE_LIST_LIMIT = 10_000  # list 1..M only below this; sample otherwise
 
 
 @dataclass(frozen=True)
@@ -42,54 +43,75 @@ def wrong_candidates(expr: Expression) -> list[int]:
     return cands
 
 
-def _filtered(values: list[int], n: int, exclude: Collection[int]) -> list[int]:
-    """Step 2: in 1..100, != n, unique (order kept), not in `exclude`."""
+def _filtered(values: list[int], n: int, max_number: int, exclude: Collection[int]) -> list[int]:
+    """Step 2: in 1..M, != n, unique (order kept), not in `exclude`."""
     seen: set[int] = set()
     out: list[int] = []
     for v in values:
-        if MIN_NUMBER <= v <= MAX_NUMBER and v != n and v not in exclude and v not in seen:
+        if MIN_NUMBER <= v <= max_number and v != n and v not in exclude and v not in seen:
             seen.add(v)
             out.append(v)
     return out
 
 
-def _pick_wrongs(expr: Expression, used_wrong: Collection[int], rng: random.Random) -> list[int]:
+def _sample_wide(
+    n: int, max_number: int, exclude: set[int], k: int, rng: random.Random
+) -> list[int]:
+    """Up to `k` distinct random values in 1..M, != n, not in `exclude`, without
+    listing 1..M when M is large."""
+    if max_number <= WIDE_LIST_LIMIT:
+        pool = _filtered(list(range(MIN_NUMBER, max_number + 1)), n, max_number, exclude)
+        return rng.sample(pool, min(len(pool), k))
+    # M is large and `exclude` is tiny next to it: rejection sampling ends quickly.
+    banned = set(exclude) | {n}
+    free = max_number - sum(1 for v in banned if MIN_NUMBER <= v <= max_number)
+    out: list[int] = []
+    while len(out) < min(k, free):
+        v = rng.randint(MIN_NUMBER, max_number)
+        if v not in banned:
+            banned.add(v)
+            out.append(v)
+    return out
+
+
+def _pick_wrongs(
+    expr: Expression, max_number: int, used_wrong: Collection[int], rng: random.Random
+) -> list[int]:
     n = expr.result
-    primary = _filtered(wrong_candidates(expr), n, used_wrong)
+    primary = _filtered(wrong_candidates(expr), n, max_number, used_wrong)
     if len(primary) >= WRONG_COUNT:
         return rng.sample(primary, WRONG_COUNT)
 
-    # Step 3: fill with random numbers in n ± 15 (same filter).
-    near = range(max(MIN_NUMBER, n - FILL_RADIUS), min(MAX_NUMBER, n + FILL_RADIUS) + 1)
-    fill = _filtered(list(near), n, set(used_wrong) | set(primary))
+    # Step 3: fill with random numbers in n ± 15 (still in 1..M, same filter).
+    near = range(max(MIN_NUMBER, n - FILL_RADIUS), min(max_number, n + FILL_RADIUS) + 1)
+    fill = _filtered(list(near), n, max_number, set(used_wrong) | set(primary))
     picked = primary + rng.sample(fill, min(len(fill), WRONG_COUNT - len(primary)))
     if len(picked) >= WRONG_COUNT:
         return picked
 
-    # Not in spec: after many regenerations n ± 15 runs out. Widen to 1..100, and
-    # as a last resort allow reusing previously used wrong values.
-    wide = _filtered(list(range(MIN_NUMBER, MAX_NUMBER + 1)), n, set(used_wrong) | set(picked))
-    picked += rng.sample(wide, min(len(wide), WRONG_COUNT - len(picked)))
+    # Still short: widen to 1..M.
+    picked += _sample_wide(n, max_number, set(used_wrong) | set(picked), WRONG_COUNT - len(picked), rng)
     if len(picked) >= WRONG_COUNT:
         return picked
-    reuse = _filtered(list(range(MIN_NUMBER, MAX_NUMBER + 1)), n, set(picked))
-    picked += rng.sample(reuse, WRONG_COUNT - len(picked))
+    # Not in spec: every value of 1..M has been used; allow reusing old wrong values.
+    picked += _sample_wide(n, max_number, set(picked), WRONG_COUNT - len(picked), rng)
     return picked
 
 
 def generate_options(
     expr: Expression,
+    max_number: int,
     rng: random.Random,
     used_wrong: Collection[int] = (),
     previous_correct_index: int | None = None,
 ) -> OptionSet:
-    """Build A/B/C/D for `expr`.
+    """Build A/B/C/D for `expr`; every value is in 1..`max_number`.
 
     `used_wrong`: wrong values already shown for this question (caller accumulates
     `OptionSet.wrong_values`). `previous_correct_index`: position of n last time;
     the new position is always different.
     """
-    wrongs = _pick_wrongs(expr, used_wrong, rng)
+    wrongs = _pick_wrongs(expr, max_number, used_wrong, rng)
     rng.shuffle(wrongs)
     positions = [i for i in range(len(OPTION_KEYS)) if i != previous_correct_index]
     correct_index = rng.choice(positions)

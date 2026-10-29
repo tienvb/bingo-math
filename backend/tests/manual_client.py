@@ -3,11 +3,17 @@
 Usage:
     .venv/bin/python tests/manual_client.py http://localhost:8000
     .venv/bin/python tests/manual_client.py http://localhost:8080   # through nginx
+    .venv/bin/python tests/manual_client.py http://localhost:8000 --next-mode manual --max-number 50
 
 Creates a room, lets a few bot players join, starts in random mode and plays until
 bingo. Bots work out the answer from `a`, `operator`, `b` (only this test bot does
 that; the real FE never computes answers) and sometimes answer wrong or ask for help
 on purpose to exercise those paths. Exit code 0 on success.
+
+`--next-mode auto` (default): the host never calls /next; the server opens the next
+question by itself after each reveal. `--next-mode manual`: the host presses Next
+on every `ready`. `--max-number M`: omitted -> server default (100); every operand,
+option and card number is checked to be <= M.
 """
 
 from __future__ import annotations
@@ -23,13 +29,14 @@ import httpx
 from websockets.asyncio.client import ClientConnection, connect
 
 NAMES = [("Bé An", "capybara"), ("Bé Bình", "cat"), ("Bé Chi", "unicorn"), ("Bé Dũng", "dinosaur")]
-CONFIG = {
+CONFIG: dict[str, Any] = {
     "operations": {"add": True, "sub": True, "mul": True, "div": True},
     "timer_seconds": 0,
     "max_wrong": 2,
-    "reveal_seconds": 2,
+    "reveal_seconds": 2,  # minimum allowed, keeps the run short (server default is 3)
     "draw_only_card_numbers": True,
 }
+DEFAULT_MAX_NUMBER = 100
 
 
 def log(msg: str) -> None:
@@ -59,6 +66,8 @@ class Bot:
                 t, d = msg["type"], msg["data"]
                 if t == "snapshot":
                     assert d["me"]["id"] == self.player_id and len(d["card"]) == 5
+                    m = d["config"]["max_number"]
+                    assert all(0 <= v <= m for row in d["card"] for v in row), d["card"]
                 elif t == "cell_marked":
                     self.marked += 1
                 elif t == "question" and d["question"]["answerer"]["id"] == self.player_id:
@@ -85,8 +94,14 @@ class Bot:
         ))
 
 
-async def play(base: str, players: int, seed: int | None, timeout: float) -> int:
+async def play(
+    base: str, players: int, seed: int | None, timeout: float, next_mode: str, max_number: int | None
+) -> int:
     rng = random.Random(seed)
+    config = {**CONFIG, "next_mode": next_mode}
+    if max_number is not None:
+        config["max_number"] = max_number
+    m = max_number or DEFAULT_MAX_NUMBER
     ws_base = "ws" + base[len("http"):] if base.startswith("http") else base
     async with httpx.AsyncClient(base_url=base, timeout=10) as http:
         health = (await http.get("/api/health")).json()
@@ -94,7 +109,7 @@ async def play(base: str, players: int, seed: int | None, timeout: float) -> int
         avatars = {a["id"] for a in (await http.get("/api/avatars")).json()}
         log(f"server ok, {len(avatars)} avatars")
 
-        r = await http.post("/api/rooms", json={"config": CONFIG, "join_base_url": base})
+        r = await http.post("/api/rooms", json={"config": config, "join_base_url": base})
         r.raise_for_status()
         room = r.json()
         pin = room["pin"]
@@ -116,6 +131,7 @@ async def play(base: str, players: int, seed: int | None, timeout: float) -> int
         async with connect(f"{ws_base}/ws?pin={pin}&role=host&token={room['host_token']}") as host:
             bot_tasks = [asyncio.create_task(b.run(ws_base, pin, rng)) for b in bots]
             questions = 0
+            next_calls = 0
             result = 1
             started = False
             try:
@@ -124,7 +140,11 @@ async def play(base: str, players: int, seed: int | None, timeout: float) -> int
                         msg = json.loads(raw)
                         t, d = msg["type"], msg["data"]
                         if t == "snapshot":
-                            log(f"host snapshot: phase={d['phase']}, players={len(d['players'])}")
+                            cfg = d["config"]
+                            log(f"host snapshot: phase={d['phase']}, players={len(d['players'])}, "
+                                f"next_mode={cfg['next_mode']}, max_number={cfg['max_number']}, "
+                                f"reveal_seconds={cfg['reveal_seconds']}")
+                            assert cfg["next_mode"] == next_mode and cfg["max_number"] == m, cfg
                         elif t == "players_updated":
                             online = sum(p["connected"] for p in d["players"])
                             if not started and online == len(bots):
@@ -135,6 +155,8 @@ async def play(base: str, players: int, seed: int | None, timeout: float) -> int
                                 log("game started (random)")
                         elif t == "question":
                             q = d["question"]
+                            assert 1 <= q["a"] <= m and 1 <= q["b"] <= m, q
+                            assert all(1 <= o["value"] <= m for o in q["options"]), q
                             if d["reason"] == "new":
                                 questions += 1
                             log(f"  Q{questions} [{d['reason']}] {q['text']}  "
@@ -148,12 +170,22 @@ async def play(base: str, players: int, seed: int | None, timeout: float) -> int
                             log(f"    number {d['number']} on: {who}")
                         elif t == "phase_changed" and d["phase"] == "ready":
                             r = await http.post(f"/api/rooms/{pin}/next", headers=headers)
-                            r.raise_for_status()
+                            if next_mode == "auto":
+                                # Auto only waits in `ready` when the pool is empty.
+                                log(f"    ready in auto mode, /next -> {r.status_code} {r.json()}")
+                                assert r.status_code == 409 and r.json()["code"] == "no_numbers_left"
+                                await http.post(f"/api/rooms/{pin}/end", headers=headers)
+                            else:
+                                r.raise_for_status()
+                                next_calls += 1
                         elif t == "game_over":
                             for w in d["winners"]:
                                 lines = ", ".join(f"{ln['type']} {ln['index']}" for ln in w["lines"])
                                 log(f"BINGO! {w['nickname']} ({w['avatar_id']}) on {lines}")
-                            log(f"game over ({d['reason']}) after {questions} questions")
+                            log(f"game over ({d['reason']}) after {questions} questions, "
+                                f"{next_calls} /next calls ({next_mode})")
+                            if next_mode == "auto":
+                                assert next_calls == 0
                             result = 0 if d["reason"] == "bingo" and d["winners"] else 1
                             break
                         elif t == "error":
@@ -179,9 +211,12 @@ def main() -> int:
     parser.add_argument("--players", type=int, default=3, choices=range(1, len(NAMES) + 1))
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--timeout", type=float, default=600)
+    parser.add_argument("--next-mode", choices=("auto", "manual"), default="auto")
+    parser.add_argument("--max-number", type=int, default=None, help="31..9007199254740991; omitted = server default (100)")
     args = parser.parse_args()
     try:
-        return asyncio.run(play(args.base_url.rstrip("/"), args.players, args.seed, args.timeout))
+        return asyncio.run(play(args.base_url.rstrip("/"), args.players, args.seed, args.timeout,
+                                args.next_mode, args.max_number))
     except Exception as exc:  # noqa: BLE001
         log(f"FAILED: {type(exc).__name__}: {exc}")
         return 1

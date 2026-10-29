@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 
-from app.game.numbers import MAX_NUMBER, TABLE_MAX, TABLE_MIN, Op, ops_for_number
+from app.game.numbers import TABLE_MAX, TABLE_MIN, Op, div_high, div_low, ops_for_number
 
 Operator = Literal["+", "-", "x", ":"]
 
@@ -46,9 +46,10 @@ def evaluate(op: Op, a: int, b: int) -> int:
     raise ValueError(f"unknown op: {op!r}")
 
 
-def generate_expression(n: int, ops: Iterable[Op], rng: random.Random) -> Expression:
-    """Pick uniformly one enabled op able to produce `n`, then build operands."""
-    candidates = ops_for_number(n, ops)
+def generate_expression(n: int, ops: Iterable[Op], max_number: int, rng: random.Random) -> Expression:
+    """Pick uniformly one enabled op able to produce `n` (with every operand and the
+    result <= `max_number`), then build operands."""
+    candidates = ops_for_number(n, ops, max_number)
     if not candidates:
         raise ValueError(f"no enabled operation can produce {n}")
     op = rng.choice(candidates)
@@ -57,7 +58,7 @@ def generate_expression(n: int, ops: Iterable[Op], rng: random.Random) -> Expres
         a = rng.randint(1, n - 1)
         b = n - a
     elif op == "sub":
-        b = rng.randint(1, MAX_NUMBER - n)
+        b = rng.randint(1, max_number - n)  # a = n + b <= M
         a = n + b
     elif op == "mul":
         pairs = [
@@ -68,8 +69,8 @@ def generate_expression(n: int, ops: Iterable[Op], rng: random.Random) -> Expres
         without_one = [p for p in pairs if 1 not in p]
         a, b = rng.choice(without_one or pairs)
     else:  # div
-        low = 1 if n == 1 else 2
-        b = rng.randint(low, TABLE_MAX)
+        # b in 2..10 with n * b <= M (b = 1 allowed only for n = 1).
+        b = rng.randint(div_low(n), div_high(n, max_number))
         a = n * b
 
     return Expression(op=op, a=a, b=b, result=n)

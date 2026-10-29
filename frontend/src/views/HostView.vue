@@ -17,6 +17,8 @@ import DrawnNumbers from '@/components/DrawnNumbers.vue'
 import JoinLinkPanel from '@/components/JoinLinkPanel.vue'
 import PlayerList from '@/components/PlayerList.vue'
 import QuestionPanel from '@/components/QuestionPanel.vue'
+import RevealCarousel from '@/components/RevealCarousel.vue'
+import { configIssues } from '@/utils/config'
 import RoomCodeDisplay from '@/components/RoomCodeDisplay.vue'
 import StatusScreen from '@/components/StatusScreen.vue'
 
@@ -58,7 +60,11 @@ async function run(name: string, fn: () => Promise<unknown>): Promise<boolean> {
   }
 }
 const phase = computed(() => game.phase)
+const nextMode = computed(() => game.config?.next_mode ?? 'auto')
+const isAuto = computed(() => nextMode.value === 'auto')
 const canNext = computed(() => phase.value === 'ready')
+/** auto: chỉ hiện Câu tiếp theo khi phase = ready (kho bốc đã hết); manual: hiện suốt ván, bật khi ready. */
+const showNext = computed(() => phase.value !== 'lobby' && phase.value !== 'finished' && (!isAuto.value || phase.value === 'ready'))
 const canSkipHelp = computed(() => phase.value === 'question')
 const canEnd = computed(() => ['question', 'reveal', 'ready'].includes(phase.value))
 const canNewRound = computed(() => phase.value === 'finished')
@@ -100,6 +106,7 @@ async function kick() {
 const draft = ref<GameConfig | null>(null)
 const dirty = ref(false)
 const configSaved = ref(false)
+const draftValid = computed(() => !!draft.value && configIssues(draft.value).length === 0)
 watch(
   () => game.config,
   (c) => {
@@ -113,7 +120,7 @@ function onDraft(c: GameConfig) {
   configSaved.value = false
 }
 async function saveConfig() {
-  if (!draft.value) return
+  if (!draft.value || !draftValid.value) return
   const cfg = draft.value
   const ok = await run('config', () => api.updateConfig(props.pin, cfg))
   if (ok) {
@@ -151,6 +158,22 @@ const answererLabel = computed(() =>
       ? t('host.modeRandom')
       : '',
 )
+// auto: Bỏ qua → question_skipped → question{new} ngay (không qua ready), nên giữ thông báo một lúc.
+const skippedNote = ref<number | null>(null)
+let skippedTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => game.lastSkipped,
+  (s) => {
+    if (!s) return
+    skippedNote.value = s.number
+    if (skippedTimer) clearTimeout(skippedTimer)
+    skippedTimer = setTimeout(() => (skippedNote.value = null), 4000)
+  },
+  { flush: 'sync' }, // auto: question{new} đến ngay sau và xóa lastSkipped
+)
+watch(phase, (p) => p !== 'question' && p !== 'ready' && (skippedNote.value = null))
+onBeforeUnmount(() => skippedTimer && clearTimeout(skippedTimer))
+
 const lastAnswerText = computed(() => {
   const a = game.lastAnswer
   if (!a || phase.value !== 'question') return ''
@@ -178,6 +201,7 @@ const lastAnswerText = computed(() => {
             <span class="badge phase" :class="phase">{{ t(`phase.${phase}`) }}</span>
             <span v-if="answererLabel" class="badge">{{ answererLabel }}</span>
             <span class="badge">{{ t('host.playerCount', { n: game.players.length }) }}</span>
+            <span class="badge mode-badge" :class="nextMode">{{ t('host.nextModeBadge', { mode: t(`create.nextModes.${nextMode}`) }) }}</span>
           </div>
         </div>
         <RoomCodeDisplay :pin="pin" :pictures="game.pictureCode" size="sm" />
@@ -197,22 +221,20 @@ const lastAnswerText = computed(() => {
               <QuestionPanel :question="shown" :reason="reason" :timer-total="game.config?.timer_seconds ?? 0" size="sm" />
               <AnswerButtons :options="shown.options" :feedback="feedback" />
               <p v-if="lastAnswerText" class="muted">{{ lastAnswerText }}</p>
+              <p v-if="isAuto && skippedNote !== null" class="muted note" role="status">{{ t('host.skippedAuto', { n: skippedNote }) }}</p>
             </template>
 
             <template v-else-if="phase === 'reveal' && game.reveal">
-              <h2>{{ t('reveal.newNumber') }} <span class="num">{{ game.reveal.number }}</span></h2>
-              <p>{{ game.reveal.items.length ? t('host.revealOn', { n: game.reveal.items.length }) : t('reveal.nobody', { n: game.reveal.number }) }}</p>
-              <ul v-if="game.reveal.items.length" class="who-has">
-                <li v-for="it in game.reveal.items" :key="it.player_id">
-                  <AvatarBadge :avatar-id="it.avatar_id" :nickname="it.nickname" size="xs" />
-                </li>
-              </ul>
+              <!-- giống màn hình chính (đồng bộ theo started_at), co gọn theo bề rộng -->
+              <RevealCarousel :reveal="game.reveal" size="sm" />
+              <p v-if="isAuto" class="muted note center">{{ t('host.autoNextHint') }}</p>
             </template>
 
             <template v-else-if="phase === 'ready'">
               <h2>{{ t('host.readyTitle') }}</h2>
               <p v-if="game.lastSkipped" class="muted">{{ t('host.skipped', { n: game.lastSkipped.number }) }}</p>
-              <p v-else class="muted">{{ t('host.readyHint') }}</p>
+              <p v-if="isAuto" class="muted">{{ t('host.readyExhausted') }}</p>
+              <p v-else-if="!game.lastSkipped" class="muted">{{ t('host.readyHint') }}</p>
             </template>
 
             <template v-else-if="phase === 'finished'">
@@ -236,7 +258,7 @@ const lastAnswerText = computed(() => {
             <button v-if="phase === 'lobby'" type="button" class="btn success main" :disabled="!game.players.length || !!busy" @click="openStart">
               {{ t('host.start') }}
             </button>
-            <button v-if="phase !== 'lobby' && phase !== 'finished'" type="button" class="btn success main" :disabled="!canNext || !!busy" @click="next">
+            <button v-if="showNext" type="button" class="btn success main" :disabled="!canNext || !!busy" @click="next">
               {{ t('host.next') }}
             </button>
             <button v-if="phase === 'finished'" type="button" class="btn success main" :disabled="!canNewRound || !!busy" @click="newRound">
@@ -266,7 +288,7 @@ const lastAnswerText = computed(() => {
             <p class="muted">{{ phase === 'lobby' ? t('host.configLobbyHint') : t('host.configFinishedHint') }}</p>
             <ConfigForm :model-value="draft" :disabled="busy === 'config'" @update:model-value="onDraft" />
             <div class="row">
-              <button type="button" class="btn" :disabled="!dirty || busy === 'config'" @click="saveConfig">{{ t('host.saveConfig') }}</button>
+              <button type="button" class="btn" :disabled="!dirty || !draftValid || busy === 'config'" @click="saveConfig">{{ t('host.saveConfig') }}</button>
               <button type="button" class="btn ghost" :disabled="!dirty" @click="resetConfig">{{ t('host.resetConfig') }}</button>
               <span v-if="configSaved" class="badge ok">{{ t('host.configSaved') }}</span>
             </div>
@@ -346,8 +368,18 @@ const lastAnswerText = computed(() => {
 .control { display: flex; flex-direction: column; gap: 0.8rem; }
 .control h2 { margin: 0; }
 .num { color: var(--c-mark); }
+.note { margin: 0; font-size: 0.95rem; }
+.mode-badge { background: #efe7ff; color: #4b2a8a; }
+.mode-badge.manual { background: #f1ede6; color: #5b4a33; }
 .who-has { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; padding: 0; margin: 0; }
 .action-bar { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+/* desktop: dính đáy khi cuộn (vd. vé reveal cao) để nút điều khiển luôn trong tầm với */
+@media (min-width: 901px) {
+  .action-bar {
+    position: sticky; bottom: 0; z-index: 10; padding: 0.6rem 0 calc(0.6rem + var(--safe-b));
+    background: linear-gradient(to top, var(--c-bg) 80%, rgba(255, 248, 239, 0));
+  }
+}
 .action-bar .btn { flex: 1 1 auto; min-height: 52px; font-size: 1.1rem; }
 .action-bar .main { flex: 2 1 200px; font-size: 1.25rem; }
 .danger-zone { align-items: flex-start; }

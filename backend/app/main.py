@@ -38,7 +38,8 @@ log = logging.getLogger("bingo")
 DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 SPA_ROUTES = ["/", "/create", "/host/{rest:path}", "/screen/{rest:path}", "/play", "/play/{rest:path}"]
 
-_CONFIG_FIELDS = {"config", "operations", "timer_seconds", "max_wrong", "reveal_seconds", "draw_only_card_numbers"}
+_CONFIG_FIELDS = {"config", "operations", "timer_seconds", "max_wrong", "reveal_seconds", "draw_only_card_numbers",
+                  "max_number", "next_mode"}
 # Body field -> error code when Pydantic rejects the request body.
 _FIELD_CODES = {
     "join_base_url": ERR_INVALID_JOIN_URL,

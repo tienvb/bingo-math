@@ -4,6 +4,7 @@ Master ghi lại mọi thay đổi đã chốt đối với `spec.md` tại đâ
 
 | Ngày | Mục trong spec | Thay đổi | Lý do |
 | --- | --- | --- | --- |
+| 2026-10-29 | `GameConfig.max_number` | Giới hạn kỹ thuật `max_number` ≤ 9007199254740991 (2^53 − 1); lớn hơn → 422 `invalid_config`. Bỏ qua ở `auto` khi kho chỉ còn đúng số vừa bỏ qua: hỏi lại số đó với phép tính mới (không chuyển `ready`) | JS không biểu diễn chính xác số nguyên lớn hơn; BE đề xuất |
 | 2026-10-29 | Luật chơi, Thuật toán 1/2/4/5, `GameConfig` | Thêm `max_number` (M): số nguyên > 30, không giới hạn trên, mặc định 100. Mọi toán hạng, kết quả và số trên vé ≤ M; R, sinh phép tính, đáp án sai đều theo 1–M. Nhân/chia vẫn bảng 1–10 và số bị chia ≤ M. Thiếu field thì dùng mặc định. BE không được dựng danh sách đầy đủ khi M lớn | Người dùng yêu cầu |
 | 2026-10-29 | Luật chơi, state machine, `GameConfig` | Thêm `next_mode: "auto" \| "manual"`, mặc định `auto`. Auto: hết reveal chưa bingo → server ra câu mới ngay, thứ tự `phase_changed{question}` → `question{reason:new}` (không qua `ready`); Bỏ qua → `question_skipped` → `question{reason:new}` (phase vẫn là `question`, không gửi `phase_changed`). Kho hết → `ready`. Manual giữ như cũ | Người dùng yêu cầu |
 | 2026-10-29 | Reveal, `GameConfig` | `reveal_seconds` mặc định 5 → **3** (vẫn 2–15, chỉnh được). Trang host cũng hiện `RevealCarousel` như màn hình chính. Màn hình người chơi chỉ hiện vé của mình; không có số thì báo "Bạn không có số N" và không khoanh ô nào | Người dùng yêu cầu |

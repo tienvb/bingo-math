@@ -41,12 +41,12 @@ const reasonText = computed(() =>
         :size="size === 'lg' ? 'lg' : size === 'md' ? 'md' : 'sm'"
       />
     </div>
-    <p class="expr" :aria-label="text">{{ text }}</p>
+    <p class="expr" :aria-label="text" :style="{ '--len': text.length }">{{ text }}</p>
   </section>
 </template>
 
 <style scoped>
-.question-panel { display: flex; flex-direction: column; gap: 0.6rem; width: 100%; min-width: 0; }
+.question-panel { display: flex; flex-direction: column; gap: 0.6rem; width: 100%; min-width: 0; container-type: inline-size; }
 .who { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
 .who-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .answering, .me { font-weight: 900; font-size: 1.15rem; overflow-wrap: anywhere; }
@@ -56,11 +56,13 @@ const reasonText = computed(() =>
 .expr {
   margin: 0; text-align: center; font-weight: 900; font-variant-numeric: tabular-nums;
   font-size: clamp(2.4rem, 12vw, 4rem); line-height: 1.1; color: var(--c-text); white-space: nowrap;
+  /* phép tính dài (max_number lớn): thu chữ theo bề rộng khung, không tràn */
+  font-size: min(clamp(2.4rem, 12vw, 4rem), calc(100cqi / (var(--len, 8) * 0.56)));
 }
-.sm .expr { font-size: clamp(1.8rem, 8vw, 2.4rem); }
+.sm .expr { font-size: min(clamp(1.8rem, 8vw, 2.4rem), calc(100cqi / (var(--len, 8) * 0.56))); }
 .lg .answering, .lg .me { font-size: clamp(1.4rem, 3vw, 2.6rem); }
 .lg .reason { font-size: clamp(1rem, 1.8vw, 1.5rem); }
-.lg .expr { font-size: clamp(2.2rem, min(10vw, 16vh), 9rem); }
+.lg .expr { font-size: min(clamp(2.2rem, min(10vw, 16vh), 9rem), calc(100cqi / (var(--len, 8) * 0.56))); }
 .lg .who :deep(.avatar-badge.lg) { --s: clamp(56px, min(18vw, 16vh), 140px); }
 
 /* điện thoại nằm ngang: thu gọn để còn chỗ cho 4 đáp án */
@@ -69,6 +71,6 @@ const reasonText = computed(() =>
   .who :deep(.avatar-badge) { --s: 40px !important; }
   .answering, .me, .lg .answering, .lg .me { font-size: 1.05rem; }
   .reason, .lg .reason { font-size: 0.85rem; }
-  .expr, .sm .expr, .lg .expr { font-size: clamp(1.6rem, 13vh, 3rem); }
+  .expr, .sm .expr, .lg .expr { font-size: min(clamp(1.6rem, 13vh, 3rem), calc(100cqi / (var(--len, 8) * 0.56))); }
 }
 </style>

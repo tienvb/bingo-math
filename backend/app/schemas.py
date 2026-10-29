@@ -9,7 +9,14 @@ from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, Field, field_validator, model_serializer, model_validator
 
-from app.game.numbers import MIN_R_SIZE, available_numbers, enabled_ops
+from app.game.numbers import (
+    DEFAULT_MAX_NUMBER,
+    MAX_NUMBER_EXCLUSIVE_MIN,
+    MAX_NUMBER_LIMIT,
+    MIN_R_SIZE,
+    enabled_ops,
+    number_set,
+)
 
 # ---------------------------------------------------------------------------
 # Error codes and WS close codes
@@ -73,6 +80,7 @@ ROOM_ICONS: tuple[str, ...] = (
 OptionKey = Literal["A", "B", "C", "D"]
 Operator = Literal["+", "-", "x", ":"]
 AnswererMode = Literal["fixed", "random"]
+NextMode = Literal["auto", "manual"]
 LineType = Literal["row", "col", "diag"]
 QuestionReason = Literal["new", "wrong", "help", "max_wrong", "timeout", "disconnect"]
 GameOverReason = Literal["bingo", "ended_by_host"]
@@ -95,8 +103,11 @@ class GameConfig(BaseModel):
     operations: Operations = Field(default_factory=Operations)
     timer_seconds: int = 0
     max_wrong: int = Field(default=2, ge=1, le=5)
-    reveal_seconds: int = Field(default=5, ge=2, le=15)
+    reveal_seconds: int = Field(default=3, ge=2, le=15)
     draw_only_card_numbers: bool = True
+    # > 30, <= 2**53 - 1 (JS safe integer); missing in a request -> default.
+    max_number: int = Field(default=DEFAULT_MAX_NUMBER, gt=MAX_NUMBER_EXCLUSIVE_MIN, le=MAX_NUMBER_LIMIT)
+    next_mode: NextMode = "auto"
 
     @field_validator("timer_seconds")
     @classmethod
@@ -110,7 +121,7 @@ class GameConfig(BaseModel):
         ops = self.enabled_ops()
         if not ops:
             raise ValueError("at least one operation must be enabled")
-        if len(available_numbers(ops)) < MIN_R_SIZE:
+        if number_set(ops, self.max_number).size < MIN_R_SIZE:
             raise ValueError(f"enabled operations must produce at least {MIN_R_SIZE} numbers")
         return self
 

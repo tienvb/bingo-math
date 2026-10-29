@@ -19,7 +19,12 @@ export const ROOM_ICONS: readonly RoomIcon[] = [
 export type GameConfig = {
   operations: { add: boolean; sub: boolean; mul: boolean; div: boolean };
   timer_seconds: number; max_wrong: number; reveal_seconds: number; draw_only_card_numbers: boolean;
+  max_number: number;              // > 30, mặc định 100
+  next_mode: "auto" | "manual";    // mặc định "auto"
 };
+
+/** Giá trị của GameConfig.next_mode (CHANGELOG 2026-10-29). */
+export type NextMode = GameConfig["next_mode"];
 
 export type Avatar = { id: string; name: { vi: string; en: string }; image_url: string; win_animation_url: string | null; color: string };
 export type PlayerInfo = { id: string; nickname: string; avatar_id: string; connected: boolean };

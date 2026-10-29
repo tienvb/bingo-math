@@ -80,8 +80,10 @@ def test_snapshot_without_player_fields() -> None:
         "operations": {"add": True, "sub": True, "mul": True, "div": True},
         "timer_seconds": 0,
         "max_wrong": 2,
-        "reveal_seconds": 5,
+        "reveal_seconds": 3,
         "draw_only_card_numbers": True,
+        "max_number": 100,
+        "next_mode": "auto",
     }
 
 
@@ -128,6 +130,16 @@ def test_client_messages() -> None:
         {"max_wrong": 6},
         {"reveal_seconds": 1},
         {"reveal_seconds": 16},
+        {"max_number": 30},
+        {"max_number": 0},
+        {"max_number": -5},
+        {"max_number": 30.5},
+        {"max_number": "lots"},
+        {"max_number": 2**53},
+        {"max_number": 10**30},
+        {"next_mode": "sometimes"},
+        {"operations": {"add": False, "sub": False, "mul": True, "div": False}, "max_number": 31},
+        {"operations": {"add": False, "sub": False, "mul": True, "div": True}, "max_number": 31},
     ],
 )
 def test_invalid_config(bad: dict) -> None:
@@ -139,6 +151,13 @@ def test_valid_configs() -> None:
     GameConfig(operations={"add": False, "sub": False, "mul": True, "div": False})
     GameConfig(timer_seconds=5)
     GameConfig(timer_seconds=120, max_wrong=5, reveal_seconds=15)
+    GameConfig(max_number=31, next_mode="manual")
+    assert GameConfig(max_number=10**9).max_number == 10**9
+    assert GameConfig(max_number=2**53 - 1).max_number == 9007199254740991  # technical cap
+    with pytest.raises(ValidationError):
+        GameConfig(max_number=2**53)
+    cfg = GameConfig.model_validate({"operations": {"add": True, "sub": False, "mul": False, "div": False}})
+    assert cfg.max_number == 100 and cfg.next_mode == "auto" and cfg.reveal_seconds == 3
 
 
 def test_error_codes_match_contract() -> None:

@@ -39,7 +39,7 @@ const card: Card = [
   [4, 24, 44, 64, 84],
   [5, 25, 45, 65, 85],
 ]
-const config = { operations: { add: true, sub: true, mul: true, div: true }, timer_seconds: 0, max_wrong: 2, reveal_seconds: 5, draw_only_card_numbers: true }
+const config = { operations: { add: true, sub: true, mul: true, div: true }, timer_seconds: 0, max_wrong: 2, reveal_seconds: 3, draw_only_card_numbers: true, max_number: 100, next_mode: 'auto' as const }
 const snapshot = (over: Partial<Snapshot> = {}): Snapshot => ({
   pin: '4729', picture_code: ['apple', 'car', 'fish'], phase: 'lobby', join_url: 'http://192.168.1.15:8080/play/4729',
   config, players: [me, bin], answerer_mode: null, fixed_player_id: null, drawn: [], question: null, reveal: null, winners: [],
@@ -189,5 +189,102 @@ describe('game store áp dụng chuỗi sự kiện', () => {
     expect(game.clockOffset).toBe(0)
     c.push('reveal', { number: 2, seconds_per_card: 5, started_at: skewed, items: [] })
     expect(Math.abs(game.clockOffset - 60_000)).toBeLessThan(1000)
+  })
+})
+
+describe('lỗi khoanh nhầm: người chơi không có số của lượt hiện tại', () => {
+  let c: FakeClient
+  let game: ReturnType<typeof useGameStore>
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    game = useGameStore()
+    c = new FakeClient()
+    game.connect('4729', 'player', 'tok', c)
+  })
+  const rv = (number: number, items: { new_cell: [number, number] }[] = []) => ({
+    number, seconds_per_card: 3, started_at: new Date().toISOString(),
+    items: items.map((i) => ({ player_id: 'p1', nickname: 'Na', avatar_id: 'cat', card, marked_before: [], new_cell: i.new_cell })),
+  })
+
+  it('lượt sau không có số → không có ô mới, ô cũ vẫn khoanh tĩnh', () => {
+    c.push('snapshot', snapshot({ phase: 'question', question: question() }))
+    // Lượt 1: mình có 44
+    c.push('answer_result', { question_id: 'q1', attempt: 1, player_id: 'p1', key: 'B', value: 56, correct: true })
+    c.push('number_drawn', { number: 44, drawn: [44] })
+    c.push('cell_marked', { number: 44, cell: [3, 2] })
+    c.push('phase_changed', { phase: 'reveal' })
+    c.push('reveal', rv(44, [{ new_cell: [3, 2] }]))
+    expect(game.myRevealCell).toEqual([3, 2])
+
+    // auto: hết reveal → phase_changed{question} → question{new}
+    c.push('phase_changed', { phase: 'question' })
+    c.push('question', { question: question({ question_id: 'q2', answerer: bin }), reason: 'new' })
+    expect(game.myRevealCell).toBeNull()
+
+    // Lượt 2: số 99 không có trên vé mình → không có cell_marked
+    c.push('answer_result', { question_id: 'q2', attempt: 1, player_id: 'p2', key: 'A', value: 99, correct: true })
+    c.push('number_drawn', { number: 99, drawn: [44, 99] })
+    c.push('phase_changed', { phase: 'reveal' })
+    c.push('reveal', rv(99))
+    expect(game.marked).toEqual([[3, 2]])
+    expect(game.myRevealCell).toBeNull()
+  })
+
+  it('cell_marked của lượt trước không được dùng khi reveal số khác', () => {
+    c.push('snapshot', snapshot({ phase: 'reveal', drawn: [44], marked: [] }))
+    c.push('cell_marked', { number: 44, cell: [3, 2] })
+    c.push('reveal', rv(44, [{ new_cell: [3, 2] }]))
+    expect(game.myRevealCell).toEqual([3, 2])
+    c.push('phase_changed', { phase: 'ready' })
+    expect(game.myRevealCell).toBeNull()
+    c.push('phase_changed', { phase: 'question' })
+    c.push('question', { question: question({ question_id: 'q3' }), reason: 'new' })
+    c.push('number_drawn', { number: 7, drawn: [44, 7] })
+    c.push('phase_changed', { phase: 'reveal' })
+    c.push('reveal', rv(7))
+    expect(game.myRevealCell).toBeNull()
+  })
+
+  it('tải lại trang giữa reveal: lấy ô mới từ reveal của đúng số đó', () => {
+    c.push('snapshot', snapshot({ phase: 'reveal', drawn: [44], marked: [[3, 2]], reveal: rv(44, [{ new_cell: [3, 2] }]) }))
+    expect(game.myRevealCell).toEqual([3, 2])
+  })
+})
+
+describe('next_mode auto: chuỗi sự kiện mới', () => {
+  let c: FakeClient
+  let game: ReturnType<typeof useGameStore>
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    game = useGameStore()
+    c = new FakeClient()
+    game.connect('4729', 'host', 'tok', c)
+  })
+
+  it('reveal → phase_changed{question} → question{new}; Bỏ qua → question_skipped → question{new}', () => {
+    c.push('snapshot', snapshot({ phase: 'reveal', me: undefined, card: undefined, marked: undefined, reveal: { number: 44, seconds_per_card: 3, started_at: new Date().toISOString(), items: [] } }))
+    c.push('phase_changed', { phase: 'question' })
+    expect(game.reveal).toBeNull()
+    c.push('question', { question: question({ question_id: 'q2' }), reason: 'new' })
+    expect(game.phase).toBe('question')
+    expect(game.question?.question_id).toBe('q2')
+
+    c.push('question_skipped', { question_id: 'q2', number: 23 })
+    expect(game.lastSkipped?.number).toBe(23)
+    expect(game.phase).toBe('question')
+    c.push('question', { question: question({ question_id: 'q3' }), reason: 'new' })
+    expect(game.phase).toBe('question')
+    expect(game.question?.question_id).toBe('q3')
+    expect(game.answerLocked).toBe(false)
+  })
+
+  it('snapshot / config_updated thiếu max_number, next_mode thì bù mặc định', () => {
+    const { max_number: _m, next_mode: _n, ...old } = config
+    c.push('snapshot', snapshot({ config: old as never }))
+    expect(game.config?.max_number).toBe(100)
+    expect(game.config?.next_mode).toBe('auto')
+    c.push('config_updated', { config: { ...old, next_mode: 'manual' } as never })
+    expect(game.config?.next_mode).toBe('manual')
+    expect(game.config?.max_number).toBe(100)
   })
 })

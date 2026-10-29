@@ -278,14 +278,16 @@ def test_config_update_in_lobby_sends_new_cards() -> None:
             cfg = {"operations": {"add": False, "sub": False, "mul": True, "div": False},
                    "timer_seconds": 10, "max_wrong": 3, "reveal_seconds": 4, "draw_only_card_numbers": False}
             r = client.put(f"/api/rooms/{pin}/config", headers=auth(room), json=cfg)
-            assert r.status_code == 200 and r.json() == cfg
-            assert host.drain() == [{"type": "config_updated", "data": {"config": cfg}}]
+            # Missing max_number / next_mode -> defaults.
+            full = {**cfg, "max_number": 100, "next_mode": "auto"}
+            assert r.status_code == 200 and r.json() == full
+            assert host.drain() == [{"type": "config_updated", "data": {"config": full}}]
             got = pw.drain()
             assert types(got) == ["config_updated", "your_card"]
             card = got[1]["data"]["card"]
             assert got[1]["data"]["marked"] == []
-            from app.game.numbers import MUL_PRODUCTS
-            assert all(v in MUL_PRODUCTS for row in card for v in row if v)
+            from app.game.numbers import TABLE_PRODUCTS
+            assert all(v in TABLE_PRODUCTS for row in card for v in row if v)
 
             bad = {**cfg, "operations": {"add": False, "sub": False, "mul": False, "div": True}}
             r = client.put(f"/api/rooms/{pin}/config", headers=auth(room), json=bad)

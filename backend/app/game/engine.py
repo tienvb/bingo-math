@@ -6,7 +6,8 @@ synchronous (events are only enqueued on connections), so no two operations on t
 same room interleave and events keep a fixed order. Timers are cancellable
 `asyncio.Task`s that re-take the lock and check they are still the current timer.
 
-Spec: *Luồng game và state machine*, *Thuật toán chi tiết* 3, 6, 7, 8, CHANGELOG 2026-10-28.
+Spec: *Luồng game và state machine*, *Thuật toán chi tiết* 3, 6, 7, 8, CHANGELOG 2026-10-28/29.
+`next_mode`: `auto` opens the next question right after reveal / Bỏ qua; `manual` waits in `ready`.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from pydantic import BaseModel
 from app.errors import ApiError
 from app.game.bingo import card_winning_lines, marked_cells
 from app.game.cards import Card, card_numbers, find_cell, generate_card
-from app.game.numbers import available_numbers, draw_number, draw_pool
+from app.game.numbers import NumberSet, draw_number, number_set, pool_size
 from app.game.options import OPTION_KEYS, OptionSet, generate_options
 from app.game.questions import Expression, generate_expression
 from app.schemas import (
@@ -185,11 +186,12 @@ class GameEngine:
         if self.phase not in phases:
             raise ApiError(409, ERR_INVALID_PHASE, f"not allowed in phase {self.phase!r}")
 
-    def _r_numbers(self) -> list[int]:
-        return available_numbers(self.config.enabled_ops())
+    def _r(self) -> NumberSet:
+        """Tập R of the current config (cached; never a full list, M can be huge)."""
+        return number_set(self.config.enabled_ops(), self.config.max_number)
 
     def _new_card(self) -> Card:
-        return generate_card(self._r_numbers(), self.rng)
+        return generate_card(self._r(), self.rng)
 
     def _broadcast(self, type_: str, data: BaseModel) -> None:
         self.connections.broadcast(_msg(type_, data))
@@ -451,8 +453,7 @@ class GameEngine:
                     raise ApiError(422, ERR_FIXED_PLAYER_REQUIRED, "fixed mode needs a valid fixed_player_id")
             else:
                 fixed_player_id = None
-            pool = self._pool()
-            if not pool:  # cannot happen with >= 1 card, but stay safe
+            if not self._pool_size():  # cannot happen with >= 1 card, but stay safe
                 raise ApiError(409, ERR_NO_NUMBERS_LEFT, "no numbers left to draw")
             self.answerer_mode = mode
             self.fixed_player_id = fixed_player_id
@@ -464,7 +465,7 @@ class GameEngine:
         async with self.lock:
             self._ensure_open()
             self._require_phase("ready")
-            if not self._pool():
+            if not self._pool_size():
                 raise ApiError(409, ERR_NO_NUMBERS_LEFT, "no numbers left to draw")
             self._start_question()
 
@@ -479,7 +480,11 @@ class GameEngine:
             self.last_skipped = q.number  # back to the pool (it was never added to drawn)
             self._log("question %s skipped, number %d back to pool", q.question_id, q.number)
             self._broadcast("question_skipped", QuestionSkippedData(question_id=q.question_id, number=q.number))
-            self._set_phase("ready")
+            if self.config.next_mode == "auto" and self._pool_size():
+                # Phase stays `question`: no `phase_changed`, just the new question.
+                self._start_question(announce_phase=False)
+            else:
+                self._set_phase("ready")
 
     async def host_help(self) -> None:
         async with self.lock:
@@ -579,13 +584,17 @@ class GameEngine:
 
     # ------------------------------------------------------------------ internals
 
-    def _pool(self) -> list[int]:
-        cards: set[int] | None = None
-        if self.config.draw_only_card_numbers:
-            cards = set()
-            for p in self.players.values():
-                cards |= card_numbers(p.card)
-        return draw_pool(self._r_numbers(), self.drawn, cards)
+    def _card_pool_numbers(self) -> set[int] | None:
+        """Numbers on any card when `draw_only_card_numbers` is on, else None (whole R)."""
+        if not self.config.draw_only_card_numbers:
+            return None
+        cards: set[int] = set()
+        for p in self.players.values():
+            cards |= card_numbers(p.card)
+        return cards
+
+    def _pool_size(self) -> int:
+        return pool_size(self._r(), self.drawn, self._card_pool_numbers())
 
     def _initial_answerer(self) -> str:
         connected = self._connected_ids()
@@ -596,18 +605,21 @@ class GameEngine:
                 return fixed
         return self.rng.choice(connected or list(self.players))
 
-    def _start_question(self) -> None:
-        n = draw_number(self._pool(), self.rng, avoid=self.last_skipped)
+    def _start_question(self, announce_phase: bool = True) -> None:
+        """Draw a number and open a question. Caller checks the pool is not empty.
+        `announce_phase=False` when already in `question` (auto mode after Bỏ qua)."""
+        n = draw_number(self._r(), self.drawn, self._card_pool_numbers(), self.rng, avoid=self.last_skipped)
         assert n is not None
         self.last_skipped = None
-        expr = generate_expression(n, self.config.enabled_ops(), self.rng)
+        expr = generate_expression(n, self.config.enabled_ops(), self.config.max_number, self.rng)
         self.question = QuestionState(
             question_id=uuid.uuid4().hex,
             number=n,
             expr=expr,
             answerer_id=self._initial_answerer(),
         )
-        self._set_phase("question")
+        if announce_phase:
+            self._set_phase("question")
         self._new_attempt("new")
 
     def _new_attempt(self, reason: QuestionReason) -> None:
@@ -615,7 +627,7 @@ class GameEngine:
         assert q is not None
         q.attempt += 1
         prev = q.options.correct_index if q.options is not None else None
-        q.options = generate_options(q.expr, self.rng, q.used_wrong, prev)
+        q.options = generate_options(q.expr, self.config.max_number, self.rng, q.used_wrong, prev)
         q.used_wrong |= set(q.options.wrong_values)
         self._cancel_question_timers()
         if self.config.timer_seconds:
@@ -723,7 +735,11 @@ class GameEngine:
         if winners:
             self._log("BINGO: %s", ", ".join(w.nickname for w in winners))
             self._finish("bingo", winners)
+        elif self.config.next_mode == "auto" and self._pool_size():
+            # `phase_changed{question}` -> `question{new}`, without passing through `ready`.
+            self._start_question()
         else:
+            # manual, or auto with an empty pool (host can only end the game).
             self._set_phase("ready")
 
     def _finish(self, reason: str, winners: list[Winner]) -> None:
