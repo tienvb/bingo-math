@@ -4,6 +4,10 @@ Master ghi lại mọi thay đổi đã chốt đối với `spec.md` tại đâ
 
 | Ngày | Mục trong spec | Thay đổi | Lý do |
 | --- | --- | --- | --- |
+| 2026-10-29 | Luật chơi, Thuật toán 1/2/4/5, `GameConfig` | Thêm `max_number` (M): số nguyên > 30, không giới hạn trên, mặc định 100. Mọi toán hạng, kết quả và số trên vé ≤ M; R, sinh phép tính, đáp án sai đều theo 1–M. Nhân/chia vẫn bảng 1–10 và số bị chia ≤ M. Thiếu field thì dùng mặc định. BE không được dựng danh sách đầy đủ khi M lớn | Người dùng yêu cầu |
+| 2026-10-29 | Luật chơi, state machine, `GameConfig` | Thêm `next_mode: "auto" \| "manual"`, mặc định `auto`. Auto: hết reveal chưa bingo → server ra câu mới ngay, thứ tự `phase_changed{question}` → `question{reason:new}` (không qua `ready`); Bỏ qua → `question_skipped` → `question{reason:new}` (phase vẫn là `question`, không gửi `phase_changed`). Kho hết → `ready`. Manual giữ như cũ | Người dùng yêu cầu |
+| 2026-10-29 | Reveal, `GameConfig` | `reveal_seconds` mặc định 5 → **3** (vẫn 2–15, chỉnh được). Trang host cũng hiện `RevealCarousel` như màn hình chính. Màn hình người chơi chỉ hiện vé của mình; không có số thì báo "Bạn không có số N" và không khoanh ô nào | Người dùng yêu cầu |
+| 2026-10-29 | Nhiệm vụ FE — người chơi | **Lỗi**: người chơi không có số ở lượt đó vẫn thấy vòng khoanh vẽ lại trên số đã khoanh ở lượt trước. `newCell` chỉ lấy từ `cell_marked` có `number` bằng số của lượt hiện tại | Người dùng báo lỗi |
 | 2026-10-28 | Docker | Image build FE và FE dev đổi `node:20-alpine` → `node:22-alpine`; README yêu cầu Node.js 22+ | `vue-i18n` 11 / `@intlify/*` yêu cầu Node ≥ 22 (`EBADENGINE`) |
 | 2026-10-28 | Docker — nginx | `/assets/` dùng một header `Cache-Control: public, max-age=31536000, immutable` thay cho `expires 1y` + `add_header`; nginx dùng `resolver 127.0.0.11` để không chết khi backend chưa lên | `expires` sinh hai dòng Cache-Control; FE đề xuất ở G3 |
 | 2026-10-28 | Nhiệm vụ FE — Công nghệ | Thêm `lottie-web`, chỉ lazy-load (dynamic import) khi người thắng có `win_animation` dạng `.json` | Người dùng chọn hỗ trợ Lottie đầy đủ như spec |

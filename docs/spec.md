@@ -52,13 +52,15 @@ Sau mỗi giai đoạn, master chạy test của cả hai bên, kiểm tra `git 
 | --- | --- |
 | Phòng | Không cần tài khoản. Ai cũng tạo được phòng và trở thành **chủ phòng**. Nhiều phòng chạy song song, tối đa 30 người chơi mỗi phòng |
 | Vé | Lưới 5 × 5, ô giữa (hàng 3, cột 3) là FREE |
-| Phạm vi số | 1–100, không trùng số trong một vé |
-| Cột của vé | Cột 1: 1–20 · cột 2: 21–40 · cột 3: 41–60 · cột 4: 61–80 · cột 5: 81–100 (khi bật đủ phép; trường hợp khác xem *Thuật toán* mục 2) |
+| Số lớn nhất `max_number` (M) | Chủ phòng đặt khi tạo phòng: số nguyên **> 30**, không giới hạn trên, mặc định 100. **Mọi toán hạng, kết quả và số trên vé đều ≤ M** |
+| Phạm vi số | 1–M, không trùng số trong một vé |
+| Cột của vé | R (tập số dùng được) sắp tăng dần, chia đều thành 5 nhóm liên tiếp. Ví dụ M = 100, bật đủ phép: cột 1: 1–20 · cột 2: 21–40 · cột 3: 41–60 · cột 4: 61–80 · cột 5: 81–100 (xem *Thuật toán* mục 2) |
 | Điều kiện thắng | Đủ 5 ô trên 1 hàng ngang, cột dọc hoặc đường chéo (12 đường). Hệ thống tự phát hiện |
 | Kết thúc ván | Ngay sau số đầu tiên tạo ra bingo. Mọi người bingo ở cùng số đó đều thắng |
 | Phép tính | Chủ phòng bật/tắt + − × : khi tạo phòng |
-| Cộng, trừ | Toán hạng và kết quả trong 1–100. Trừ không ra 0 hoặc số âm |
-| Nhân, chia | Bảng cửu chương 1–10. Chia luôn chia hết |
+| Cộng, trừ | Toán hạng và kết quả trong 1–M. Trừ không ra 0 hoặc số âm |
+| Nhân, chia | Bảng cửu chương 1–10, và mọi số (kể cả số bị chia) ≤ M. Chia luôn chia hết |
+| Chuyển câu `next_mode` | Chủ phòng chọn khi tạo phòng: **`auto`** (mặc định) — hết reveal mà chưa bingo, hoặc sau khi Bỏ qua, server tự ra câu tiếp theo; **`manual`** — chờ chủ phòng bấm Câu tiếp theo |
 | Liên kết toán và bingo | Hệ thống bốc số trước, rồi sinh phép tính có kết quả bằng số đó. Số được khoanh = kết quả đúng |
 | Đáp án | 4 lựa chọn A/B/C/D, đúng 1 đáp án đúng |
 | Người trả lời | Chọn khi bắt đầu ván, không đổi giữa ván: **fixed** (chủ phòng chọn 1 người luôn trả lời) hoặc **random** (ngẫu nhiên thuần, không cân bằng lượt) |
@@ -68,7 +70,7 @@ Sau mỗi giai đoạn, master chạy test của cả hai bên, kiểm tra `git 
 | Bỏ qua | Chủ phòng có nút Bỏ qua: số đó quay lại kho chưa bốc |
 | Điểm | Không có hệ thống điểm |
 | Khoanh số | Trả lời đúng thì số được khoanh trên vé của **mọi người** có số đó, tự động |
-| Màn hình chính | Lần lượt hiện vé của từng người có số đó, **5 giây mỗi vé**, có hiệu ứng vẽ vòng tròn đỏ trực tiếp cho số mới; số khoanh trước đó hiển thị tĩnh, phân biệt rõ |
+| Reveal | Màn hình chính **và trang điều khiển của chủ phòng** lần lượt hiện vé của từng người có số đó, **`reveal_seconds` giây mỗi vé (mặc định 3, chủ phòng chỉnh được)**, có hiệu ứng vẽ vòng tròn đỏ trực tiếp cho số mới; số khoanh trước đó hiển thị tĩnh, phân biệt rõ. Màn hình người chơi chỉ hiện vé của chính mình: có số thì khoanh ô đó, không có số thì báo "Bạn không có số N" và **không** khoanh hay làm nổi ô nào |
 | Nhân vật | Mỗi người chơi chọn 1 nhân vật khi vào phòng; nhân vật hiện cùng vé, khi trả lời và khi thắng (có animation) |
 | Ngôn ngữ | Tiếng Việt (mặc định) và tiếng Anh |
 | Môi trường | Mạng LAN, chạy bằng Docker Compose |
@@ -141,13 +143,15 @@ Vòng chính là question → reveal → ready → question; bảng dưới li�
 | `lobby` | Phòng vừa tạo; người chơi vào phòng và nhận vé ngay khi vào | `question` | Chủ phòng chọn fixed/random rồi bấm Bắt đầu (cần ≥ 1 người chơi) |
 | `question` | Đang có câu hỏi, 1 người được chỉ định trả lời | `question` | Trả lời sai, Help, hết giờ, người trả lời mất kết nối: đổi đáp án hoặc đổi người, vẫn là câu đó |
 | | | `reveal` | Trả lời đúng |
-| | | `ready` | Chủ phòng bấm Bỏ qua (số quay lại kho) |
-| `reveal` | Màn hình chính lần lượt hiện vé có số vừa ra, 5 giây mỗi vé | `finished` | Hết thời gian reveal và có người bingo |
-| | | `ready` | Hết thời gian reveal, chưa ai bingo |
+| | | `ready` | `manual`: chủ phòng bấm Bỏ qua (số quay lại kho) |
+| | | `question` | `auto`: chủ phòng bấm Bỏ qua → số quay lại kho, server ra ngay câu mới |
+| `reveal` | Màn hình chính và trang host lần lượt hiện vé có số vừa ra, `reveal_seconds` giây mỗi vé | `finished` | Hết thời gian reveal và có người bingo |
+| | | `ready` | `manual`: hết thời gian reveal, chưa ai bingo |
+| | | `question` | `auto`: hết thời gian reveal, chưa ai bingo → server ra ngay câu mới |
 | `ready` | Chờ chủ phòng | `question` | Chủ phòng bấm Câu tiếp theo |
 | `finished` | Hiển thị người thắng và đường thắng | `lobby` | Chủ phòng bấm Ván mới (giữ người chơi và mã phòng, sinh vé mới) |
 
-Ngoài ra: ở `question`, `reveal`, `ready`, chủ phòng bấm Kết thúc ván thì chuyển `finished` (không có người thắng). Ở mọi trạng thái, Đóng phòng thì xóa phòng. Khi bấm Bắt đầu, server tự bốc số và tạo câu hỏi đầu tiên, không cần bấm Câu tiếp theo.
+Ngoài ra: ở `question`, `reveal`, `ready`, chủ phòng bấm Kết thúc ván thì chuyển `finished` (không có người thắng). Ở mọi trạng thái, Đóng phòng thì xóa phòng. Khi bấm Bắt đầu, server tự bốc số và tạo câu hỏi đầu tiên, không cần bấm Câu tiếp theo. Ở `auto`, nếu kho bốc đã hết khi cần ra câu mới thì chuyển `ready` (chủ phòng chỉ còn Kết thúc ván); `ready` vẫn nhận Câu tiếp theo ở cả hai chế độ.
 
 Người chơi chỉ vào phòng được khi `phase = lobby`. Người đã vào có thể kết nối lại ở bất kỳ trạng thái nào bằng `player_token`.
 
@@ -157,18 +161,20 @@ Toàn bộ logic dưới đây chạy ở BE, riêng cho từng phòng; FE khôn
 
 ### 1. Tập số khả dụng R
 
-Tùy phép tính được bật, chỉ một số giá trị có thể là kết quả. R là hợp của:
+Tùy phép tính được bật và `max_number` = M, chỉ một số giá trị có thể là kết quả. R là hợp của:
 
-- Cộng: 2–100 (a, b ≥ 1)
-- Trừ: 1–99 (a ≤ 100, b ≥ 1)
-- Nhân: mọi tích a × b với a, b trong 1–10
-- Chia: 1–10
+- Cộng: 2–M (a, b ≥ 1, a + b ≤ M)
+- Trừ: 1–(M−1) (a ≤ M, b ≥ 1)
+- Nhân: mọi tích a × b ≤ M với a, b trong 1–10
+- Chia: mọi n trong 1–10 có ít nhất một b hợp lệ với a = n × b ≤ M
 
-Cấu hình hợp lệ khi bật ít nhất 1 phép và |R| ≥ 25. Ví dụ chỉ bật nhân thì R có 42 số, vẫn hợp lệ.
+Cấu hình hợp lệ khi bật ít nhất 1 phép, M > 30 và |R| ≥ 25. Ví dụ M = 100, chỉ bật nhân thì R có 42 số, vẫn hợp lệ; M = 31 chỉ bật nhân thì R chỉ có 22 số, không hợp lệ.
+
+M không có giới hạn trên, nên BE không được dựng R hay kho bốc thành danh sách đầy đủ khi M lớn: cộng/trừ cho R là các đoạn liên tiếp, nhân/chia có tối đa vài chục số; nhóm cột, sinh vé và bốc số làm trên đoạn số. FE phải hiển thị được số nhiều chữ số trong ô vé và nút đáp án (tự thu cỡ chữ).
 
 ### 2. Sinh vé (khi người chơi vào phòng)
 
-1. Sắp R tăng dần, chia thành 5 nhóm liên tiếp có kích thước chênh nhau tối đa 1. Khi bật đủ phép, R = 1–100 nên 5 nhóm đúng là 1–20, 21–40, … , 81–100.
+1. Sắp R tăng dần, chia thành 5 nhóm liên tiếp có kích thước chênh nhau tối đa 1 (nhóm lớn hơn ở bên trái). Khi M = 100 và bật đủ phép, R = 1–100 nên 5 nhóm đúng là 1–20, 21–40, … , 81–100.
 2. Cột c lấy ngẫu nhiên 5 số khác nhau từ nhóm c (cột 3 lấy 4 số), sắp tăng dần từ trên xuống.
 3. Ô [2][2] (đếm từ 0) là FREE, lưu giá trị `0`.
 4. Vé lưu ở server dạng `int[5][5]`, gửi riêng cho chủ vé.
@@ -184,17 +190,17 @@ Chọn ngẫu nhiên đều 1 phép trong các phép được bật mà ra đư�
 | Phép | Cách sinh | Hiển thị |
 | --- | --- | --- |
 | Cộng | a ngẫu nhiên trong 1…n−1, b = n − a | `a + b = ?` |
-| Trừ | b ngẫu nhiên trong 1…100−n, a = n + b | `a − b = ?` |
+| Trừ | b ngẫu nhiên trong 1…M−n, a = n + b | `a − b = ?` |
 | Nhân | chọn ngẫu nhiên 1 cặp (a, b) trong 1–10 có a × b = n; ưu tiên cặp không chứa 1 nếu có | `a × b = ?` |
-| Chia | b ngẫu nhiên trong 2–10 (n = 1 thì cho phép b = 1), a = n × b | `a : b = ?` (tiếng Anh: `a ÷ b = ?`) |
+| Chia | b ngẫu nhiên trong 2–10 với n × b ≤ M (n = 1 thì cho phép b = 1), a = n × b | `a : b = ?` (tiếng Anh: `a ÷ b = ?`) |
 
 Phép tính giữ nguyên suốt câu hỏi, kể cả khi đổi người hoặc sinh lại đáp án.
 
 ### 5. Sinh 4 đáp án
 
 1. Ứng viên sai: n ± 1, n ± 2, n ± 10, n đảo chữ số (nếu có 2 chữ số khác nhau); thêm theo phép: cộng/trừ dùng nhầm phép (a − b hoặc a + b), nhân a × (b ± 1) và (a ± 1) × b, chia n ± 1.
-2. Lọc: trong 1–100, khác n, không trùng nhau, không thuộc tập **đã dùng làm đáp án sai trước đó của câu này**.
-3. Thiếu thì bù số ngẫu nhiên trong khoảng n ± 15 (vẫn trong 1–100) theo cùng điều kiện lọc.
+2. Lọc: trong 1–M, khác n, không trùng nhau, không thuộc tập **đã dùng làm đáp án sai trước đó của câu này**.
+3. Thiếu thì bù số ngẫu nhiên trong khoảng n ± 15 (vẫn trong 1–M) theo cùng điều kiện lọc; vẫn cạn thì mở rộng ra cả 1–M.
 4. Lấy ngẫu nhiên 3 số sai, đặt n vào vị trí ngẫu nhiên; khi sinh lại, vị trí của n phải khác lần trước.
 5. Server chỉ gửi giá trị của A/B/C/D, **không gửi** lựa chọn nào đúng.
 
@@ -215,9 +221,9 @@ Phép tính giữ nguyên suốt câu hỏi, kể cả khi đổi người hoặ
 ### 8. Reveal và kiểm tra bingo
 
 - `affected` = người chơi có n trên vé, theo thứ tự vào phòng. Mỗi phần tử gồm vé, nhân vật, các ô đã khoanh trước đó, ô mới.
-- Thời lượng reveal = `max(len(affected), 1) × reveal_seconds` (mặc định 5 giây). Không ai có số thì màn hình chính hiện thông báo trong 5 giây.
+- Thời lượng reveal = `max(len(affected), 1) × reveal_seconds` (mặc định 3 giây). Không ai có số thì màn hình chính và trang host hiện thông báo trong `reveal_seconds` giây.
 - Kiểm tra bingo bằng bitmask: đánh số ô 0–24, tính sẵn 12 mask (5 hàng, 5 cột, 2 chéo); ô được đánh dấu khi là FREE hoặc số đã ra; thắng khi `(marked & line) == line`.
-- Hết thời gian reveal, nếu có người thắng thì chuyển `finished` kèm danh sách người thắng và đường thắng, ngược lại chuyển `ready`.
+- Hết thời gian reveal, nếu có người thắng thì chuyển `finished` kèm danh sách người thắng và đường thắng. Ngược lại: `manual` thì chuyển `ready`; `auto` thì bốc số và ra câu mới ngay (kho hết thì chuyển `ready`).
 
 ## QR và địa chỉ join
 
@@ -301,12 +307,14 @@ REST dùng để tạo phòng, gửi lệnh của chủ phòng và cho người 
   "operations": {"add": true, "sub": true, "mul": true, "div": true},
   "timer_seconds": 0,
   "max_wrong": 2,
-  "reveal_seconds": 5,
-  "draw_only_card_numbers": true
+  "reveal_seconds": 3,
+  "draw_only_card_numbers": true,
+  "max_number": 100,
+  "next_mode": "auto"
 }
 ```
 
-`timer_seconds`: 0 là tắt, ngược lại 5–120. `max_wrong`: 1–5. `reveal_seconds`: 2–15. Không hợp lệ (không bật phép nào, hoặc |R| < 25) trả 422 `invalid_config`.
+`timer_seconds`: 0 là tắt, ngược lại 5–120. `max_wrong`: 1–5. `reveal_seconds`: 2–15, mặc định 3. `max_number`: số nguyên > 30, không giới hạn trên, mặc định 100. `next_mode`: `"auto"` (mặc định) hoặc `"manual"`. Không hợp lệ (không bật phép nào, `max_number` ≤ 30, hoặc |R| < 25) trả 422 `invalid_config`. Request thiếu `max_number` / `next_mode` thì server dùng giá trị mặc định.
 
 **Endpoint** (`{pin}` là PIN của phòng)
 
@@ -350,6 +358,8 @@ type RoomIcon = "apple" | "banana" | "star" | "sun" | "moon" | "heart" | "car" |
 type GameConfig = {
   operations: { add: boolean; sub: boolean; mul: boolean; div: boolean };
   timer_seconds: number; max_wrong: number; reveal_seconds: number; draw_only_card_numbers: boolean;
+  max_number: number;              // > 30, mặc định 100
+  next_mode: "auto" | "manual";    // mặc định "auto"
 };
 type Avatar = { id: string; name: { vi: string; en: string }; image_url: string; win_animation_url: string | null; color: string };
 type PlayerInfo = { id: string; nickname: string; avatar_id: string; connected: boolean };
@@ -528,7 +538,9 @@ frontend/src/
 - `JoinLinkPanel` theo mục *QR và địa chỉ join*, kèm `RoomCodeDisplay` (PIN + mã hình).
 - Danh sách người chơi kèm nhân vật, nút kick; sửa cấu hình khi `phase` là `lobby` hoặc `finished`.
 - Hộp thoại Bắt đầu: chọn **Cố định** (kèm dropdown chọn người) hoặc **Ngẫu nhiên**.
-- Bảng điều khiển: câu hỏi hiện tại, người đang trả lời, số đã ra; các nút Câu tiếp theo, Bỏ qua, Help, Kết thúc ván, Ván mới chỉ bật khi `phase` cho phép; nút Mở màn hình chính (mở `/screen/<pin>?token=<screen_token>` ở tab mới); nút Đóng phòng có hộp thoại xác nhận.
+- Form cấu hình (tạo phòng và sửa ở sảnh) có thêm: **Số lớn nhất** (`max_number`, ô số, > 30, báo lỗi ngay khi ≤ 30 hoặc |R| < 25) và **Chuyển câu** (`next_mode`: Tự động / Thủ công). `reveal_seconds` hiển thị là "Thời gian xem mỗi vé (giây)".
+- `reveal`: trang điều khiển cũng hiện `RevealCarousel` giống màn hình chính (cùng đồng bộ theo `started_at`), co gọn theo bề rộng màn hình, kèm tiêu đề "Vé 2/5" và "Số mới: 56".
+- Bảng điều khiển: câu hỏi hiện tại, người đang trả lời, số đã ra; các nút Câu tiếp theo, Bỏ qua, Help, Kết thúc ván, Ván mới chỉ bật khi `phase` cho phép (ở `auto`, nút Câu tiếp theo chỉ hiện khi `phase = ready`, tức lúc kho bốc đã hết); nút Mở màn hình chính (mở `/screen/<pin>?token=<screen_token>` ở tab mới); nút Đóng phòng có hộp thoại xác nhận.
 
 **Màn hình chính (`/screen/:pin`)**
 
@@ -543,6 +555,7 @@ frontend/src/
 - `/play` cho chọn 3 hình hoặc nhập PIN theo mục *Mã phòng* (`RoomCodeInput`); `/play/:pin` (từ QR) vào thẳng bước nhập tên rồi `AvatarPicker`.
 - Lưu `player_token` vào `localStorage` theo PIN để tự kết nối lại khi tải lại trang.
 - Hai tab: **Vé của tôi** (luôn xem được, các ô đã khoanh, ô mới nhất có animation khi nhận `cell_marked`) và **Câu hỏi**.
+- `reveal` trên màn hình người chơi: chỉ hiện vé của chính mình. Nếu nhận `cell_marked` cho số vừa ra (`cell_marked.number === reveal.number`) thì vẽ vòng tròn ô đó; nếu không thì hiện "Bạn không có số N" và **không** truyền `newCell` / không animate ô nào. `newCell` chỉ được lấy từ `cell_marked` của đúng lượt hiện tại, không bao giờ lấy từ ô đã khoanh ở lượt trước.
 - Khi mình là người trả lời: chuyển sang tab Câu hỏi, 4 nút A/B/C/D to, nút Help, đồng hồ, rung máy (`navigator.vibrate`) nếu có. Khóa nút sau khi bấm cho đến khi nhận `answer_result` hoặc `question` mới.
 - Khi người khác trả lời: hiển thị phép tính, nhân vật và "<tên> đang trả lời", không có nút bấm.
 - Màn hình thắng/thua khi `game_over`; "Bạn đã bị mời ra" khi `kicked`; "Phòng đã đóng" kèm nút về trang chủ khi `room_closed`.
@@ -553,7 +566,7 @@ frontend/src/
 
 **Build**: `npm run build` (gồm `vue-tsc --noEmit`) xuất ra `dist/` (dùng trong Docker); `npm run build:embed` xuất ra `../backend/static` (chạy không Docker). `vite.config.ts` proxy `/api`, `/ws` (bật `ws: true`), `/avatars` sang `VITE_PROXY_TARGET` (mặc định `http://localhost:8000`).
 
-**Hoàn thành khi**: với mock, tạo phòng và chơi trọn một ván trên cả 3 màn hình; reveal hiện đúng 5 giây mỗi vé và ô mới được vẽ vòng tròn trực tiếp; tải lại trang người chơi giữa ván vẫn thấy vé và các ô đã khoanh; đổi ngôn ngữ giữa ván không mất trạng thái; mở `/play/<pin>` vào thẳng bước nhập tên; vào phòng bằng mã hình được.
+**Hoàn thành khi**: với mock, tạo phòng và chơi trọn một ván trên cả 3 màn hình; reveal hiện đúng `reveal_seconds` giây mỗi vé (mặc định 3) trên cả màn hình chính và trang host và ô mới được vẽ vòng tròn trực tiếp; tải lại trang người chơi giữa ván vẫn thấy vé và các ô đã khoanh; đổi ngôn ngữ giữa ván không mất trạng thái; mở `/play/<pin>` vào thẳng bước nhập tên; vào phòng bằng mã hình được.
 
 ## Docker
 
